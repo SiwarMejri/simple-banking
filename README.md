@@ -31,7 +31,7 @@ python3 -m venv venv
 
 This command creates a directory named venv in your project directory, containing the virtual environment.
 
-Activate the Virtual Environment
+## Activate the Virtual Environment
 
 Before you install the dependencies and run the project, you need to activate the virtual environment:
 
