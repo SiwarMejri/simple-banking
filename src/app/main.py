@@ -1,6 +1,6 @@
 from fastapi import FastAPI, status, Response
 from .models import Transaction
-from . import core
+from .core import core
 
 app = FastAPI()
 

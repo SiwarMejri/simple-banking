@@ -1,4 +1,4 @@
-from .models import Account
+from ..models import Account
 
 accounts = {}
 
