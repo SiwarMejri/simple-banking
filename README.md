@@ -7,7 +7,7 @@ This project is a simple banking API built with FastAPI. It supports operations 
 These instructions will guide you through setting up and running the project locally on your machine for development and testing purposes.
 
 Prerequisites
-Python 3.6+
+Python 3.10+
 pip
 
 ## Setup and Installation
