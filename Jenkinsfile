@@ -6,7 +6,7 @@ pipeline {
         PYTHONPATH = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT = "test" // test pour SQLite, dev/prod pour PostgreSQL
-        DATABASE_URL = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"`
+        DATABASE_URL = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"
     }
 
     stages {
@@ -59,6 +59,13 @@ pipeline {
             }
         }
 
+        stage('Build Docker') {
+            steps {
+                echo 'Construction de l\'image Docker...'
+                sh 'docker build -t simple-banking:latest .'
+            }
+        }
+
         stage('Scan de vulnérabilités avec Trivy') {
             steps {
                 echo "Scan des vulnérabilités avec Trivy..."
@@ -70,13 +77,6 @@ pipeline {
                 """
                 archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
-            }
-        }
-
-        stage('Build Docker') {
-            steps {
-                echo 'Construction de l\'image Docker...'
-                sh 'docker build -t simple-banking:latest .'
             }
         }
 
