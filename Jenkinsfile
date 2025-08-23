@@ -6,7 +6,7 @@ pipeline {
         PYTHONPATH = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT = "test" // test pour SQLite, dev/prod pour PostgreSQL
-        DATABASE_URL = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"
+        DATABASE_URL = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"`
     }
 
     stages {
@@ -58,37 +58,30 @@ pipeline {
                 }
             }
         }
+
         stage('Scan de vulnérabilités avec Trivy') {
-    steps {
-        echo 'Scan des vulnérabilités avec Trivy (code source)...'
-        sh '''
-            # Scan du code source, ne bloque pas le pipeline si des vulnérabilités sont trouvées
-            trivy fs --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
-        '''
-        archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
-    }
-}
+            steps {
+                echo "Scan des vulnérabilités avec Trivy..."
+                sh """
+                    # Scan du code source + requirements.txt
+                    trivy fs --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-report.json .
+                    # Scan de l'image Docker
+                    trivy image --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-image-report.json simple-banking:latest
+                """
+                archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
+            }
+        }
 
-stage('Build Docker') {
-    steps {
-        echo 'Construction de l\'image Docker...'
-        sh 'docker build -t simple-banking:latest .'
-    }
-}
+        stage('Build Docker') {
+            steps {
+                echo 'Construction de l\'image Docker...'
+                sh 'docker build -t simple-banking:latest .'
+            }
+        }
 
-stage('Scan Docker Image avec Trivy') {
-    steps {
-        echo 'Scan des vulnérabilités de l\'image Docker...'
-        sh '''
-            # Scan de l'image Docker, ne bloque pas le pipeline si des vulnérabilités sont trouvées
-            trivy image --severity CRITICAL,HIGH --format json --output trivy-image-report.json simple-banking:latest || true
-        '''
-        archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
-    }
-}
-        // Les autres étapes sont commentées pour l'instant
+        // Les autres étapes restent commentées
         /*
-
         stage('Monitoring & Alertes') {
             steps {
                 echo "Vérification du monitoring et alertes..."
