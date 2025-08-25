@@ -1,32 +1,23 @@
-pipeline { 
+pipeline {
     agent any
 
     environment {
-        VENV_DIR       = "${WORKSPACE}/venv"
-        PYTHONPATH     = "${WORKSPACE}/src"
-        PIP_CACHE_DIR  = "${WORKSPACE}/.pip-cache"
-        ENVIRONMENT    = "test" // test pour SQLite, dev/prod pour PostgreSQL
-        DATABASE_URL   = "sqlite:///./test_banking.db"
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-credentials') // récupère ton token depuis Jenkins
-        IMAGE_NAME     = "siwarmejri/simple-banking"
-        IMAGE_TAG      = "latest"
+        VENV_DIR      = "${WORKSPACE}/venv"
+        PYTHONPATH    = "${WORKSPACE}/src"
+        PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
+        ENVIRONMENT   = "test" // test pour SQLite, dev/prod pour PostgreSQL
+        DATABASE_URL  = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"
+
+        IMAGE_NAME    = "siwarmejri/simple-banking"
+        IMAGE_TAG     = "latest"
     }
 
     stages {
 
         stage('Checkout SCM') {
             steps {
-                echo "🔄 Récupération du code source depuis GitHub..."
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: '*/main']], // adapte si tu utilises 'master'
-                    doGenerateSubmoduleConfigurations: false,
-                    extensions: [[$class: 'CleanBeforeCheckout']], // nettoie workspace avant checkout
-                    userRemoteConfigs: [[
-                        url: 'https://github.com/SiwarMejri/simple-banking.git',
-                        credentialsId: 'github-credentials' // ID des credentials GitHub configurés dans Jenkins
-                    ]]
-                ])
+                echo "🔄 Récupération du code source..."
+                checkout scm
             }
         }
 
@@ -60,13 +51,13 @@ pipeline {
                 echo "🔎 Analyse SAST avec SonarQube..."
                 withSonarQubeEnv('sonarqube') {
                     withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                        sh """
+                        sh '''
                             ${tool 'sonar-scanner'}/bin/sonar-scanner \
                               -Dsonar.projectKey=simple-banking \
                               -Dsonar.sources=src \
                               -Dsonar.host.url=$SONAR_HOST_URL \
                               -Dsonar.token=$SONAR_TOKEN
-                        """
+                        '''
                     }
                 }
             }
@@ -83,9 +74,7 @@ pipeline {
             steps {
                 echo "🛡️ Scan des vulnérabilités avec Trivy..."
                 sh """
-                    # Scan du code source
                     trivy fs --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
-                    # Scan de l'image Docker
                     trivy image --severity CRITICAL,HIGH --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG} || true
                 """
                 archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
@@ -99,19 +88,18 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
                                                  usernameVariable: 'DOCKER_USER',
                                                  passwordVariable: 'DOCKER_PASS')]) {
-                    // Connexion sécurisée à DockerHub
-                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                    sh '''
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
 
-                    // Tag et push de l'image
-                    sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} $DOCKER_USER/${IMAGE_NAME}:${IMAGE_TAG}"
-                    sh "docker push $DOCKER_USER/${IMAGE_NAME}:${IMAGE_TAG}"
+                        # Tag et push de l'image
+                        docker tag siwarmejri/simple-banking:latest $DOCKER_USER/simple-banking:latest
+                        docker push $DOCKER_USER/simple-banking:latest
 
-                    // Déconnexion pour sécurité
-                    sh 'docker logout'
+                        docker logout
+                    '''
                 }
             }
         }
-
     }
 
     post {
