@@ -51,13 +51,13 @@ pipeline {
                 echo "🔎 Analyse SAST avec SonarQube..."
                 withSonarQubeEnv('sonarqube') {
                     withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                        sh '''
-                            ${tool 'sonar-scanner'}/bin/sonar-scanner \
+                        sh """
+                            sonar-scanner \
                               -Dsonar.projectKey=simple-banking \
                               -Dsonar.sources=src \
                               -Dsonar.host.url=$SONAR_HOST_URL \
                               -Dsonar.login=$SONAR_TOKEN
-                        '''
+                        """
                     }
                 }
             }
