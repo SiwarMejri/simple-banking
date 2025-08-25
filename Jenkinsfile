@@ -55,8 +55,7 @@ pipeline {
                             sonar-scanner \
                               -Dsonar.projectKey=simple-banking \
                               -Dsonar.sources=src \
-                              -Dsonar.host.url=$SONAR_HOST_URL \
-                              -Dsonar.login=$SONAR_TOKEN
+                              -Dsonar.host.url=http://192.168.240.139:9000
                         """
                     }
                 }
