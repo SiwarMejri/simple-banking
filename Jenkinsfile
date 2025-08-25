@@ -65,7 +65,7 @@ pipeline {
                               -Dsonar.projectKey=simple-banking \
                               -Dsonar.sources=src \
                               -Dsonar.host.url=$SONAR_HOST_URL \
-                              -Dsonar.login=$SONAR_TOKEN
+                              -Dsonar.token=$SONAR_TOKEN
                         """
                     }
                 }
