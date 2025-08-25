@@ -23,7 +23,7 @@ pipeline {
                     doGenerateSubmoduleConfigurations: false,
                     extensions: [[$class: 'CleanBeforeCheckout']], // nettoie workspace avant checkout
                     userRemoteConfigs: [[
-                        url: 'https://github.com/siwarmejri/simple-banking.git',
+                        url: 'https://github.com/SiwarMejri/simple-banking.git',
                         credentialsId: 'github-credentials' // ID des credentials GitHub configurés dans Jenkins
                     ]]
                 ])
