@@ -7,7 +7,6 @@ pipeline {
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test" // test pour SQLite, dev/prod pour PostgreSQL
         DATABASE_URL  = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"
-
         IMAGE_NAME    = "siwarmejri/simple-banking"
         IMAGE_TAG     = "latest"
     }
@@ -55,7 +54,8 @@ pipeline {
                             sonar-scanner \
                               -Dsonar.projectKey=simple-banking \
                               -Dsonar.sources=src \
-                              -Dsonar.host.url=http://192.168.240.139:9000
+                              -Dsonar.host.url=$SONAR_HOST_URL \
+                              -Dsonar.token=$SONAR_TOKEN
                         """
                     }
                 }
@@ -78,25 +78,10 @@ pipeline {
                 """
                 archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
-            }
+             }
         }
 
-        stage('Push Docker Image') {
-            steps {
-                echo '📤 Push de l\'image Docker vers DockerHub...'
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
-                                                 usernameVariable: 'DOCKER_USER',
-                                                 passwordVariable: 'DOCKER_PASS')]) {
-                    sh '''
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        docker tag siwarmejri/simple-banking:latest $DOCKER_USER/simple-banking:latest
-                        docker push $DOCKER_USER/simple-banking:latest
-                        docker logout
-                    '''
-                }
-            }
-        }
-
+        // --- Partie ajoutée pour le PDF ---
         stage('Generate Full PDF Report') {
             when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
