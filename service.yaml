@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: simple-banking
+  namespace: default
+spec:
+  selector:
+    app: simple-banking
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+      nodePort: 30080  # NodePort exposé
+  type: NodePort
+

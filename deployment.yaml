@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simple-banking
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: simple-banking
+  template:
+    metadata:
+      labels:
+        app: simple-banking
+    spec:
+      containers:
+        - name: simple-banking
+          image: simple-banking:latest   # ou ton image DockerHub
+          ports:
+            - containerPort: 8000
+

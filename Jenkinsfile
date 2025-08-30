@@ -89,14 +89,39 @@ pipeline {
                                                  passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
                         echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-
-                        # Tag et push de l'image
                         docker tag siwarmejri/simple-banking:latest $DOCKER_USER/simple-banking:latest
                         docker push $DOCKER_USER/simple-banking:latest
-
                         docker logout
                     '''
                 }
+            }
+        }
+
+        stage('Generate Full PDF Report') {
+            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
+            steps {
+                echo "📄 Génération du rapport PDF consolidé SonarQube + Trivy..."
+                sh """
+                    . ${VENV_DIR}/bin/activate
+                    python3 generate_full_report.py \
+                      --trivy-json trivy-report.json \
+                      --trivy-image-json trivy-image-report.json \
+                      --sonarqube-project simple-banking \
+                      --output full_report.pdf
+                """
+                archiveArtifacts artifacts: 'full_report.pdf', allowEmptyArchive: false
+            }
+        }
+
+        stage('Send PDF Report by Email') {
+            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
+            steps {
+                emailext(
+                    subject: "📊 Rapport CI/CD - SonarQube + Trivy",
+                    body: "Bonjour,\n\nLe rapport PDF consolidé du projet simple-banking est ci-joint.\n\nCordialement.",
+                    to: "siwarmejri727@gmail.com",
+                    attachPatterns: "**/full_report.pdf"
+                )
             }
         }
     }
