@@ -2,17 +2,15 @@ pipeline {
     agent any
 
     environment {
-        VENV_DIR      = "${WORKSPACE}/venv"
-        PYTHONPATH    = "${WORKSPACE}/src"
-        PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
-        ENVIRONMENT   = "test" // test pour SQLite, dev/prod pour PostgreSQL
-        DATABASE_URL  = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"
-        IMAGE_NAME    = "siwarmejri/simple-banking"
-        IMAGE_TAG     = "latest"
+        VENV_DIR = "${WORKSPACE}/venv"
+        DATABASE_URL = "sqlite:///./test_banking.db"
+        PYTHONPATH = "${WORKSPACE}/src"
+        IMAGE_NAME = "simple-banking"
+        IMAGE_TAG = "latest"
+        SONAR_HOST_URL = "http://192.168.240.139:9000"
     }
 
     stages {
-
         stage('Checkout SCM') {
             steps {
                 echo "🔄 Récupération du code source..."
@@ -50,13 +48,13 @@ pipeline {
                 echo "🔎 Analyse SAST avec SonarQube..."
                 withSonarQubeEnv('sonarqube') {
                     withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                        sh """
+                        sh '''
                             sonar-scanner \
                               -Dsonar.projectKey=simple-banking \
                               -Dsonar.sources=src \
                               -Dsonar.host.url=$SONAR_HOST_URL \
                               -Dsonar.token=$SONAR_TOKEN
-                        """
+                        '''
                     }
                 }
             }
@@ -72,16 +70,15 @@ pipeline {
         stage('Scan de vulnérabilités avec Trivy') {
             steps {
                 echo "🛡️ Scan des vulnérabilités avec Trivy..."
-                sh """
+                sh '''
                     trivy fs --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
                     trivy image --severity CRITICAL,HIGH --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG} || true
-                """
+                '''
                 archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
-             }
+            }
         }
 
-        // --- Partie ajoutée pour le PDF ---
         stage('Generate Full PDF Report') {
             when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
@@ -117,4 +114,3 @@ pipeline {
         failure { echo "❌ Pipeline échoué" }
     }
 }
-
