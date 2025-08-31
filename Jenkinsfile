@@ -43,22 +43,18 @@ pipeline {
         }
 
         stage('Analyse SAST avec SonarQube') {
-            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
-            steps {
-                echo "🔎 Analyse SAST avec SonarQube..."
-                withSonarQubeEnv('sonarqube') {
-                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                        sh '''
-                            sonar-scanner \
-                              -Dsonar.projectKey=simple-banking \
-                              -Dsonar.sources=src \
-                              -Dsonar.host.url=$SONAR_HOST_URL \
-                              -Dsonar.token=$SONAR_TOKEN
-                        '''
-                    }
-                }
-            }
+    when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
+    steps {
+        echo "🔎 Analyse SAST avec SonarQube..."
+        withSonarQubeEnv('sonarqube') {
+            sh '''
+                sonar-scanner \
+                  -Dsonar.projectKey=simple-banking \
+                  -Dsonar.sources=src
+            '''
         }
+    }
+}
 
         stage('Build Docker') {
             steps {
