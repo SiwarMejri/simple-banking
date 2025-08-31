@@ -105,7 +105,7 @@ pipeline {
                     subject: "📊 Rapport CI/CD - SonarQube + Trivy",
                     body: "Bonjour,\n\nLe rapport PDF consolidé du projet simple-banking est ci-joint.\n\nCordialement.",
                     to: "siwarmejri727@gmail.com",
-                    attachPatterns: "**/full_report.pdf"
+                    attachmentsPattern: "**/full_report.pdf"
                 )
             }
         }
