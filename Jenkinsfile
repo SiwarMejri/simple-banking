@@ -2,15 +2,17 @@ pipeline {
     agent any
 
     environment {
-        VENV_DIR = "${WORKSPACE}/venv"
-        DATABASE_URL = "sqlite:///./test_banking.db"
-        PYTHONPATH = "${WORKSPACE}/src"
-        IMAGE_NAME = "simple-banking"
-        IMAGE_TAG = "latest"
-        SONAR_HOST_URL = "http://192.168.240.139:9000"
+        VENV_DIR      = "${WORKSPACE}/venv"
+        PYTHONPATH    = "${WORKSPACE}/src"
+        PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
+        ENVIRONMENT   = "test" // test pour SQLite, dev/prod pour PostgreSQL
+        DATABASE_URL  = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"
+        IMAGE_NAME    = "siwarmejri/simple-banking"
+        IMAGE_TAG     = "latest"
     }
 
     stages {
+
         stage('Checkout SCM') {
             steps {
                 echo "🔄 Récupération du code source..."
@@ -43,18 +45,20 @@ pipeline {
         }
 
         stage('Analyse SAST avec SonarQube') {
-    when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
-    steps {
-        echo "🔎 Analyse SAST avec SonarQube..."
-        withSonarQubeEnv('sonarqube') {
-            sh '''
-                sonar-scanner \
-                  -Dsonar.projectKey=simple-banking \
-                  -Dsonar.sources=src
-            '''
+            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
+            steps {
+                echo "🔎 Analyse SAST avec SonarQube..."
+                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                    sh """
+                        sonar-scanner \
+                          -Dsonar.projectKey=simple-banking \
+                          -Dsonar.sources=src \
+                          -Dsonar.host.url=http://192.168.240.139:9000 \
+                          -Dsonar.login=$SONAR_TOKEN
+                    """
+                }
+            }
         }
-    }
-}
 
         stage('Build Docker') {
             steps {
@@ -66,18 +70,19 @@ pipeline {
         stage('Scan de vulnérabilités avec Trivy') {
             steps {
                 echo "🛡️ Scan des vulnérabilités avec Trivy..."
-                sh '''
+                sh """
                     trivy fs --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
                     trivy image --severity CRITICAL,HIGH --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG} || true
-                '''
+                """
                 archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
             }
         }
 
-        stage('Generate Full PDF Report') {
+        stage('Generate PDF, Email & Push Docker') {
             when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
+                // Génération du rapport PDF
                 echo "📄 Génération du rapport PDF consolidé SonarQube + Trivy..."
                 sh """
                     . ${VENV_DIR}/bin/activate
@@ -88,18 +93,27 @@ pipeline {
                       --output full_report.pdf
                 """
                 archiveArtifacts artifacts: 'full_report.pdf', allowEmptyArchive: false
-            }
-        }
 
-        stage('Send PDF Report by Email') {
-            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
-            steps {
+                // Envoi du PDF par email
                 emailext(
                     subject: "📊 Rapport CI/CD - SonarQube + Trivy",
                     body: "Bonjour,\n\nLe rapport PDF consolidé du projet simple-banking est ci-joint.\n\nCordialement.",
                     to: "siwarmejri727@gmail.com",
                     attachmentsPattern: "**/full_report.pdf"
                 )
+
+                // Push Docker vers DockerHub
+                echo '📤 Push de l\'image Docker vers DockerHub...'
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
+                                                 usernameVariable: 'DOCKER_USER',
+                                                 passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        docker tag siwarmejri/simple-banking:latest $DOCKER_USER/simple-banking:latest
+                        docker push $DOCKER_USER/simple-banking:latest
+                        docker logout
+                    '''
+                }
             }
         }
     }
