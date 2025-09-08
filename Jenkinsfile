@@ -39,7 +39,7 @@ pipeline {
                     . ${VENV_DIR}/bin/activate
                     export DATABASE_URL="$DATABASE_URL"
                     export PYTHONPATH="$PYTHONPATH"
-                    pytest --maxfail=1 --disable-warnings -q
+                    pytest --maxfail=1 --disable-warnings --cov=src --cov-report=xml
                 """
             }
         }
@@ -53,6 +53,7 @@ pipeline {
                         sonar-scanner \
                           -Dsonar.projectKey=simple-banking \
                           -Dsonar.sources=src \
+                          -Dsonar.python.coverage.reportPaths=coverage.xml \
                           -Dsonar.host.url=http://192.168.240.139:9000 \
                           -Dsonar.token=$SONAR_TOKEN
                     """
