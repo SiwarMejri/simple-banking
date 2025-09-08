@@ -8,11 +8,11 @@ import argparse
 import os
 
 def load_json(file_path):
+    """Charge un fichier JSON s'il existe."""
     if os.path.exists(file_path):
         with open(file_path, 'r') as f:
             return json.load(f)
-    else:
-        return {}
+    return {}
 
 def fetch_sonarqube_metrics(project_key, sonar_url='http://192.168.240.139:9000', token=None):
     """
@@ -31,6 +31,9 @@ def fetch_sonarqube_metrics(project_key, sonar_url='http://192.168.240.139:9000'
         return {}
 
 def format_trivy_results(trivy_data):
+    """
+    Formate les résultats Trivy pour affichage dans un tableau PDF.
+    """
     rows = [["CVE", "Package", "Severity", "Installed Version", "Fixed Version"]]
     for result in trivy_data.get('Results', []):
         for v in result.get('Vulnerabilities', []):
@@ -44,6 +47,7 @@ def format_trivy_results(trivy_data):
     return rows
 
 def generate_pdf(trivy_fs, trivy_img, sonar_metrics, output_file):
+    """Génère le PDF final consolidé SonarQube + Trivy"""
     doc = SimpleDocTemplate(output_file, pagesize=A4)
     elements = []
     styles = getSampleStyleSheet()
@@ -67,12 +71,12 @@ def generate_pdf(trivy_fs, trivy_img, sonar_metrics, output_file):
         measures = {m['metric']: m['value'] for m in sonar_metrics['component']['measures']}
         data = [
             ["Métrique", "Valeur"],
-            ["🐞 Bugs", measures.get("bugs", "N/A")],
-            ["🔒 Vulnérabilités", measures.get("vulnerabilities", "N/A")],
-            ["💨 Code Smells", measures.get("code_smells", "N/A")],
-            ["📈 Couverture (%)", measures.get("coverage", "N/A")],
-            ["📊 Lignes de code", measures.get("ncloc", "N/A")],
-            ["📑 Densité duplications (%)", measures.get("duplicated_lines_density", "N/A")]
+            ["🐞 Bugs", measures.get("bugs", "0")],
+            ["🔒 Vulnérabilités", measures.get("vulnerabilities", "0")],
+            ["💨 Code Smells", measures.get("code_smells", "0")],
+            ["📈 Couverture (%)", measures.get("coverage", "0")],
+            ["📊 Lignes de code", measures.get("ncloc", "0")],
+            ["📑 Densité duplications (%)", measures.get("duplicated_lines_density", "0")]
         ]
         table = Table(data, colWidths=[250, 150])
         table.setStyle(TableStyle([
@@ -84,7 +88,7 @@ def generate_pdf(trivy_fs, trivy_img, sonar_metrics, output_file):
         ]))
         elements.append(table)
     else:
-        elements.append(Paragraph("⚠️ Aucune donnée SonarQube disponible.", styles['Normal']))
+        elements.append(Paragraph("⚠️ Impossible de récupérer les données SonarQube.", styles['Normal']))
 
     elements.append(Spacer(1, 20))
 
@@ -93,14 +97,18 @@ def generate_pdf(trivy_fs, trivy_img, sonar_metrics, output_file):
     fs_rows = format_trivy_results(trivy_fs)
     if len(fs_rows) > 1:
         fs_table = Table(fs_rows, colWidths=[100, 100, 80, 100, 100])
-        fs_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#C0504D")),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('GRID', (0,0), (-1,-1), 0.25, colors.black),
-        ]))
-        elements.append(fs_table)
     else:
+        # Toujours afficher un tableau vide avec en-tête
+        fs_rows = [["CVE", "Package", "Severity", "Installed Version", "Fixed Version"]]
+        fs_table = Table(fs_rows, colWidths=[100, 100, 80, 100, 100])
+    fs_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#C0504D")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('GRID', (0,0), (-1,-1), 0.25, colors.black),
+    ]))
+    elements.append(fs_table)
+    if len(fs_rows) == 1:
         elements.append(Paragraph("✅ Aucune vulnérabilité critique ou haute trouvée.", styles['Normal']))
 
     elements.append(Spacer(1, 20))
@@ -110,17 +118,20 @@ def generate_pdf(trivy_fs, trivy_img, sonar_metrics, output_file):
     img_rows = format_trivy_results(trivy_img)
     if len(img_rows) > 1:
         img_table = Table(img_rows, colWidths=[100, 100, 80, 100, 100])
-        img_table.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#9BBB59")),
-            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
-            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
-            ('GRID', (0,0), (-1,-1), 0.25, colors.black),
-        ]))
-        elements.append(img_table)
     else:
+        img_rows = [["CVE", "Package", "Severity", "Installed Version", "Fixed Version"]]
+        img_table = Table(img_rows, colWidths=[100, 100, 80, 100, 100])
+    img_table.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#9BBB59")),
+        ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('GRID', (0,0), (-1,-1), 0.25, colors.black),
+    ]))
+    elements.append(img_table)
+    if len(img_rows) == 1:
         elements.append(Paragraph("✅ Aucune vulnérabilité critique ou haute trouvée dans l'image.", styles['Normal']))
 
-    # Sauvegarde du PDF
+    # === Fin du PDF ===
     doc.build(elements)
     print(f"✅ Rapport PDF généré : {output_file}")
 
