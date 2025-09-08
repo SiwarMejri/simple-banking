@@ -51,6 +51,10 @@ pipeline {
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
                     sh """
                         sonar-scanner \
+                          -Dsonar.projectKey=simple-banking \
+                          -Dsonar.sources=src \
+                          -Dsonar.python.coverage.reportPaths=coverage.xml \
+                          -Dsonar.host.url=http://192.168.240.139:9000 \
                           -Dsonar.token=$SONAR_TOKEN
                     """
                 }
