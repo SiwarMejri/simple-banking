@@ -34,4 +34,5 @@ urllib3==2.4.0
 uvicorn==0.34.2
 reportlab
 requests
-
+pytest==8.4.1
+pytest-cov==5.0.0
