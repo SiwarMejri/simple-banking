@@ -1,7 +1,6 @@
 import json
 import requests
 from reportlab.lib.pagesizes import A4
-from reportlab.pdfgen import canvas
 from reportlab.lib import colors
 from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
@@ -16,6 +15,9 @@ def load_json(file_path):
         return {}
 
 def fetch_sonarqube_metrics(project_key, sonar_url='http://192.168.240.139:9000', token=None):
+    """
+    Récupère les métriques principales de SonarQube pour un projet donné.
+    """
     api_url = f"{sonar_url}/api/measures/component?component={project_key}&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density,ncloc"
     headers = {}
     if token:
@@ -62,15 +64,22 @@ def generate_pdf(trivy_fs, trivy_img, sonar_metrics, output_file):
     # === Section SonarQube ===
     elements.append(Paragraph("✅ Résultats SonarQube", styles['Heading2']))
     if sonar_metrics and 'component' in sonar_metrics:
-        measures = sonar_metrics['component']['measures']
-        data = [["Métrique", "Valeur"]]
-        for m in measures:
-            data.append([m['metric'], m['value']])
-        table = Table(data, colWidths=[200, 200])
+        measures = {m['metric']: m['value'] for m in sonar_metrics['component']['measures']}
+        data = [
+            ["Métrique", "Valeur"],
+            ["🐞 Bugs", measures.get("bugs", "N/A")],
+            ["🔒 Vulnérabilités", measures.get("vulnerabilities", "N/A")],
+            ["💨 Code Smells", measures.get("code_smells", "N/A")],
+            ["📈 Couverture (%)", measures.get("coverage", "N/A")],
+            ["📊 Lignes de code", measures.get("ncloc", "N/A")],
+            ["📑 Densité duplications (%)", measures.get("duplicated_lines_density", "N/A")]
+        ]
+        table = Table(data, colWidths=[250, 150])
         table.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#4F81BD")),
             ('TEXTCOLOR', (0,0), (-1,0), colors.white),
             ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
             ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
         ]))
         elements.append(table)
