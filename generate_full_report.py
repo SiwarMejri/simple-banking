@@ -2,6 +2,9 @@ import json
 import requests
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
+from reportlab.lib import colors
+from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
 import argparse
 import os
 
@@ -13,7 +16,7 @@ def load_json(file_path):
         return {}
 
 def fetch_sonarqube_metrics(project_key, sonar_url='http://192.168.240.139:9000', token=None):
-    api_url = f"{sonar_url}/api/measures/component?component={project_key}&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density"
+    api_url = f"{sonar_url}/api/measures/component?component={project_key}&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density,ncloc"
     headers = {}
     if token:
         headers['Authorization'] = f"Basic {token}"
@@ -21,64 +24,96 @@ def fetch_sonarqube_metrics(project_key, sonar_url='http://192.168.240.139:9000'
         response = requests.get(api_url, headers=headers)
         response.raise_for_status()
         return response.json()
-    except:
+    except Exception as e:
+        print(f"⚠️ Erreur SonarQube: {e}")
         return {}
 
-def add_title(pdf, title):
-    pdf.setFont("Helvetica-Bold", 20)
-    pdf.drawString(50, 800, title)
-    pdf.setFont("Helvetica", 12)
-
-def add_section(pdf, heading, text, y_pos):
-    pdf.setFont("Helvetica-Bold", 14)
-    pdf.drawString(50, y_pos, heading)
-    pdf.setFont("Helvetica", 12)
-    pdf.drawString(50, y_pos - 20, text)
+def format_trivy_results(trivy_data):
+    rows = [["CVE", "Package", "Severity", "Installed Version", "Fixed Version"]]
+    for result in trivy_data.get('Results', []):
+        for v in result.get('Vulnerabilities', []):
+            rows.append([
+                v.get('VulnerabilityID', ''),
+                v.get('PkgName', ''),
+                v.get('Severity', ''),
+                v.get('InstalledVersion', ''),
+                v.get('FixedVersion', '')
+            ])
+    return rows
 
 def generate_pdf(trivy_fs, trivy_img, sonar_metrics, output_file):
-    pdf = canvas.Canvas(output_file, pagesize=A4)
-    width, height = A4
-    y = 800
+    doc = SimpleDocTemplate(output_file, pagesize=A4)
+    elements = []
+    styles = getSampleStyleSheet()
 
-    add_title(pdf, "Rapport CI/CD - SonarQube + Trivy")
+    # === Titre principal ===
+    elements.append(Paragraph("📊 Rapport CI/CD - SonarQube + Trivy", styles['Title']))
+    elements.append(Spacer(1, 20))
 
-    # SonarQube Metrics
-    sonar_text = ""
+    # === Résumé exécutif ===
+    elements.append(Paragraph("Résumé exécutif", styles['Heading2']))
+    resume = """
+    Ce rapport consolide les résultats des analyses **SonarQube** (qualité du code, sécurité)
+    et **Trivy** (vulnérabilités systèmes et images Docker).
+    """
+    elements.append(Paragraph(resume, styles['Normal']))
+    elements.append(Spacer(1, 20))
+
+    # === Section SonarQube ===
+    elements.append(Paragraph("✅ Résultats SonarQube", styles['Heading2']))
     if sonar_metrics and 'component' in sonar_metrics:
         measures = sonar_metrics['component']['measures']
-        sonar_text = ", ".join([f"{m['metric']}: {m['value']}" for m in measures])
+        data = [["Métrique", "Valeur"]]
+        for m in measures:
+            data.append([m['metric'], m['value']])
+        table = Table(data, colWidths=[200, 200])
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#4F81BD")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+        ]))
+        elements.append(table)
     else:
-        sonar_text = "Aucune donnée SonarQube disponible."
+        elements.append(Paragraph("⚠️ Aucune donnée SonarQube disponible.", styles['Normal']))
 
-    add_section(pdf, "✅ SonarQube Metrics", sonar_text, y - 50)
-    y -= 100
+    elements.append(Spacer(1, 20))
 
-    # Trivy Filesystem Scan
-    trivy_fs_text = ""
-    if trivy_fs:
-        for vuln in trivy_fs.get('Results', []):
-            for v in vuln.get('Vulnerabilities', []):
-                trivy_fs_text += f"{v.get('VulnerabilityID', '')} - {v.get('PkgName','')} - {v.get('Severity','')}\n"
+    # === Section Trivy Filesystem ===
+    elements.append(Paragraph("🛡️ Analyse Trivy - Système de fichiers", styles['Heading2']))
+    fs_rows = format_trivy_results(trivy_fs)
+    if len(fs_rows) > 1:
+        fs_table = Table(fs_rows, colWidths=[100, 100, 80, 100, 100])
+        fs_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#C0504D")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('GRID', (0,0), (-1,-1), 0.25, colors.black),
+        ]))
+        elements.append(fs_table)
     else:
-        trivy_fs_text = "Aucune vulnérabilité critique ou haute trouvée."
+        elements.append(Paragraph("✅ Aucune vulnérabilité critique ou haute trouvée.", styles['Normal']))
 
-    add_section(pdf, "🛡️ Trivy Filesystem Scan", trivy_fs_text, y)
-    y -= 200
+    elements.append(Spacer(1, 20))
 
-    # Trivy Image Scan
-    trivy_img_text = ""
-    if trivy_img:
-        for vuln in trivy_img.get('Results', []):
-            for v in vuln.get('Vulnerabilities', []):
-                trivy_img_text += f"{v.get('VulnerabilityID', '')} - {v.get('PkgName','')} - {v.get('Severity','')}\n"
+    # === Section Trivy Image ===
+    elements.append(Paragraph("🛡️ Analyse Trivy - Image Docker", styles['Heading2']))
+    img_rows = format_trivy_results(trivy_img)
+    if len(img_rows) > 1:
+        img_table = Table(img_rows, colWidths=[100, 100, 80, 100, 100])
+        img_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#9BBB59")),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.white),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('GRID', (0,0), (-1,-1), 0.25, colors.black),
+        ]))
+        elements.append(img_table)
     else:
-        trivy_img_text = "Aucune vulnérabilité critique ou haute trouvée dans l'image."
+        elements.append(Paragraph("✅ Aucune vulnérabilité critique ou haute trouvée dans l'image.", styles['Normal']))
 
-    add_section(pdf, "🛡️ Trivy Image Scan", trivy_img_text, y)
-    y -= 200
-
-    pdf.save()
-    print(f"PDF généré : {output_file}")
+    # Sauvegarde du PDF
+    doc.build(elements)
+    print(f"✅ Rapport PDF généré : {output_file}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Génère un rapport PDF consolidé SonarQube + Trivy")
