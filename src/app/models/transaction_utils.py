@@ -1,6 +1,6 @@
 # src/app/transaction_utils.py
 from fastapi import Response
-from .database import SessionLocal
+from src.app.database import SessionLocal
 from .transactions import Transaction
 
 db = SessionLocal()
