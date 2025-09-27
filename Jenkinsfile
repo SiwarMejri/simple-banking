@@ -38,8 +38,12 @@ pipeline {
                 sh """
                     . ${VENV_DIR}/bin/activate
                     export DATABASE_URL="sqlite:///./test_banking.db"
-                    export PYTHONPATH="$PWD/src/app:$PYTHONPATH"
+                    export PYTHONPATH=$WORKSPACE/src
+                    uvicorn src.app.main:app --host 0.0.0.0 --port 8000 &
+                    UVICORN_PID=$!
+                    sleep 3  # Attendre que l'API démarre
                     pytest --maxfail=1 --disable-warnings --cov=src --cov-report=xml
+                    kill $UVICORN_PID
                 """
             }
         }
