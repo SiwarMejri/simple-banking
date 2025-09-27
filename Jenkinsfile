@@ -40,7 +40,7 @@ pipeline {
                 sh """
                     . ${VENV_DIR}/bin/activate
                     export DATABASE_URL="${DATABASE_URL}"
-                    export PYTHONPATH=$WORKSPACE/src
+                    export PYTHONPATH=/var/lib/jenkins/workspace/simple-banking_main
                     pytest --maxfail=1 --disable-warnings --cov=src --cov-report=xml -v
                 """
             }
