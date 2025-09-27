@@ -35,7 +35,8 @@ pipeline {
         stage('Test') {
             steps {
                 echo "🧪 Exécution des tests..."
-                sh """
+                sh '''
+
                     . ${VENV_DIR}/bin/activate
                     export DATABASE_URL="sqlite:///./test_banking.db"
                     export PYTHONPATH=$WORKSPACE/src
@@ -44,7 +45,8 @@ pipeline {
                     sleep 3  # Attendre que l'API démarre
                     pytest --maxfail=1 --disable-warnings --cov=src --cov-report=xml
                     kill $UVICORN_PID
-                """
+               '''
+
             }
         }
 
