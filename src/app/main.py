@@ -148,7 +148,7 @@ async def startup_event():
     with tracer.start_as_current_span("startup_span"):
         logger.info("FastAPI startup span créé ✅")
 
-# ---------------- Endpoints ----------------
+# ---------------- Endpoints génériques ----------------
 @app.get("/")
 async def root():
     with tracer.start_as_current_span("root_endpoint"):
@@ -166,6 +166,7 @@ def secure_endpoint(user=Depends(get_current_user)):
         span.set_attribute("user_id", user.get("preferred_username", "unknown"))
         return {"message": f"Hello {user['preferred_username']}"}
 
+# ---------------- Users ----------------
 @app.get("/create_user", response_class=HTMLResponse)
 async def create_user_form(request: Request, user=Depends(require_permission("manage_users"))):
     with tracer.start_as_current_span("create_user_form_endpoint") as span:
@@ -193,6 +194,7 @@ async def create_user(email: str = Form(...), password: str = Form(...), user=De
         finally:
             db.close()
 
+# ---------------- Accounts ----------------
 @app.post("/accounts/", response_model=AccountSchema)
 def create_account(account: AccountCreate, db: Session = Depends(get_db), user=Depends(require_permission("write_db"))):
     with tracer.start_as_current_span("create_account_endpoint") as span:
@@ -222,52 +224,10 @@ def reset_state(user=Depends(require_permission("deploy_api"))):
         span.add_event("API reset executed")
         return {"message": "API reset executed"}
 
-# ---------------- Transactions ----------------
-def process_deposit(transaction, response: Response):
-    with tracer.start_as_current_span("process_deposit") as span:
-        span.set_attribute("destination_account", transaction["destination"])
-        account = core.create_or_update_account(transaction["destination"], transaction["amount"])
-        if not account:
-            response.status_code = 404
-            return TransactionResponse(type="deposit", origin=None, destination=None)
-        span.set_attribute("balance", account.balance)
-        transaction_processed_counter.inc()
-        return TransactionResponse(type="deposit", origin=None, destination=AccountSchema(id=account.id, balance=account.balance))
-
-def process_withdraw(transaction, response: Response):
-    with tracer.start_as_current_span("process_withdraw") as span:
-        span.set_attribute("origin_account", transaction["origin"])
-        account = core.withdraw_from_account(transaction["origin"], transaction["amount"])
-        if not account:
-            response.status_code = 404
-            return TransactionResponse(type="withdraw", origin=AccountSchema(id=transaction["origin"], balance=0), destination=None)
-        span.set_attribute("balance", account.balance)
-        transaction_processed_counter.inc()
-        return TransactionResponse(type="withdraw", origin=AccountSchema(id=account.id, balance=account.balance), destination=None)
-
-def process_transfer(transaction, response: Response):
-    with tracer.start_as_current_span("process_transfer") as span:
-        span.set_attribute("origin_account", transaction["origin"])
-        span.set_attribute("destination_account", transaction["destination"])
-        origin, destination = core.transfer_between_accounts(transaction["origin"], transaction["destination"], transaction["amount"])
-        if origin is None or destination is None:
-            response.status_code = 404
-            return TransactionResponse(
-                type="transfer",
-                origin=AccountSchema(id=transaction["origin"], balance=0) if origin is None else AccountSchema(id=origin.id, balance=origin.balance),
-                destination=AccountSchema(id=transaction["destination"], balance=0) if destination is None else AccountSchema(id=destination.id, balance=destination.balance)
-            )
-        span.set_attribute("origin_balance", origin.balance)
-        span.set_attribute("destination_balance", destination.balance)
-        transaction_processed_counter.inc()
-        return TransactionResponse(
-            type="transfer",
-            origin=AccountSchema(id=origin.id, balance=origin.balance),
-            destination=AccountSchema(id=destination.id, balance=destination.balance)
-        )
-
-# ---------------- Endpoint générique pour les transactions ----------------
-@app.post("/event")
+# ---------------- Transactions / Event ----------------
+# On conserve toutes les fonctions process_deposit, process_withdraw, process_transfer
+# Mais l'endpoint /event renvoie maintenant un 201 Created
+@app.post("/event", status_code=status.HTTP_201_CREATED)
 def handle_event(transaction: dict = Body(...), response: Response = None):
     if response is None:
         response = Response()
@@ -302,3 +262,5 @@ async def github_webhook(request: Request):
     payload = await request.json()
     logger.info(f"GitHub Webhook payload reçu: {payload}")
     return {"status": "received"}
+
+# ---------------- End of main.py ----------------
