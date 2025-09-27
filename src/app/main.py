@@ -4,7 +4,7 @@
 from app.tracer_setup import tracer  # ⚠️ Importer en premier pour que le service soit correct
 
 # ---------------- FastAPI / Autres imports ----------------
-from .transaction_utils import process_deposit
+from .models.transaction_utils import process_deposit
 from fastapi import FastAPI, Request, status, Response, HTTPException, Form, Depends, Body
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
