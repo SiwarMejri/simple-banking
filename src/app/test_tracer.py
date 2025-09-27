@@ -1,4 +1,4 @@
-from tracer_setup import tracer
+from .tracer_setup import tracer
 import time
 
 def main():
