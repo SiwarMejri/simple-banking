@@ -37,4 +37,3 @@ def transfer_between_accounts(origin: str, destination: str, amount: int) -> (Op
     
     return accounts[origin], accounts[destination]
 
-osboxes@osboxes:~/Desktop/banque-monitoring/simple-bank
