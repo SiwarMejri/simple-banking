@@ -40,6 +40,7 @@ opentelemetry-instrumentation==0.39b0
 opentelemetry-exporter-otlp==1.21.0
 opentelemetry-exporter-jaeger==1.21.0
 hvac==1.2.1
+passlib[bcrypt]==1.7.4
 
 
 
