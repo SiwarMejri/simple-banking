@@ -5,8 +5,8 @@ pipeline {
         VENV_DIR      = "${WORKSPACE}/venv"
         PYTHONPATH    = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
-        ENVIRONMENT   = "test" // test pour SQLite, dev/prod pour PostgreSQL
-        DATABASE_URL  = "${env.ENVIRONMENT == 'test' ? 'sqlite:///./test_banking.db' : (env.DATABASE_URL ?: 'postgresql://postgres:admin@localhost/banking')}"
+        ENVIRONMENT   = "test" // test = SQLite
+        DATABASE_URL  = "sqlite:///./test_banking.db"
         IMAGE_NAME    = "siwarmejri/simple-banking"
         IMAGE_TAG     = "latest"
     }
@@ -26,27 +26,23 @@ pipeline {
                 sh """
                     python3 -m venv ${VENV_DIR}
                     . ${VENV_DIR}/bin/activate
+                    echo "🧹 Nettoyage du cache pip"
+                    pip cache purge || true
                     pip install --upgrade pip
                     pip install -r requirements.txt
                 """
             }
         }
 
-        stage('Test') {
+        stage('Tests Unitaires') {
             steps {
-                echo "🧪 Exécution des tests..."
-                sh '''
-
+                echo "🧪 Exécution des tests unitaires avec TestClient..."
+                sh """
                     . ${VENV_DIR}/bin/activate
-                    export DATABASE_URL="sqlite:///./test_banking.db"
+                    export DATABASE_URL="${DATABASE_URL}"
                     export PYTHONPATH=$WORKSPACE/src
-                    uvicorn src.app.main:app --host 0.0.0.0 --port 8000 &
-                    UVICORN_PID=$!
-                    sleep 3  # Attendre que l'API démarre
-                    pytest --maxfail=1 --disable-warnings --cov=src --cov-report=xml
-                    kill $UVICORN_PID
-               '''
-
+                    pytest --maxfail=1 --disable-warnings --cov=src --cov-report=xml -v
+                """
             }
         }
 
@@ -70,7 +66,7 @@ pipeline {
 
         stage('Build Docker') {
             steps {
-                echo '🐳 Construction de l\'image Docker...'
+                echo "🐳 Construction de l'image Docker..."
                 sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
             }
         }
@@ -90,8 +86,7 @@ pipeline {
         stage('Generate PDF, Email & Push Docker') {
             when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
-                // Génération du rapport PDF
-                echo "📄 Génération du rapport PDF consolidé SonarQube + Trivy..."
+                echo "📄 Génération du rapport PDF + envoi email + push Docker"
                 sh """
                     . ${VENV_DIR}/bin/activate
                     python3 generate_full_report.py \
@@ -102,7 +97,6 @@ pipeline {
                 """
                 archiveArtifacts artifacts: 'full_report.pdf', allowEmptyArchive: false
 
-                // Envoi du PDF par email
                 emailext(
                     subject: "📊 Rapport CI/CD - SonarQube + Trivy",
                     body: "Bonjour,\n\nLe rapport PDF consolidé du projet simple-banking est ci-joint.\n\nCordialement.",
@@ -110,8 +104,6 @@ pipeline {
                     attachmentsPattern: "**/full_report.pdf"
                 )
 
-                // Push Docker vers DockerHub
-                echo '📤 Push de l\'image Docker vers DockerHub...'
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
                                                  usernameVariable: 'DOCKER_USER',
                                                  passwordVariable: 'DOCKER_PASS')]) {
