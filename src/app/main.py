@@ -270,7 +270,6 @@ def process_transfer(transaction, response: Response):
 @app.post("/event")
 def handle_event(transaction: dict = Body(...), response: Response = None):
     if response is None:
-        from fastapi import Response
         response = Response()
     tx_type = transaction.get("type")
     if tx_type == "deposit":
@@ -301,5 +300,5 @@ async def get_account(user_id: str, user=Depends(require_permission("read_metric
 @app.post("/github-webhook/")
 async def github_webhook(request: Request):
     payload = await request.json()
-    print(payload)
+    logger.info(f"GitHub Webhook payload reçu: {payload}")
     return {"status": "received"}
