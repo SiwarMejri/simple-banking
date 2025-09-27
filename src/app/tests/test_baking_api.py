@@ -2,28 +2,37 @@
 
 import pytest
 from fastapi.testclient import TestClient
-from src.app.main import app  # ⚠️ Assure-toi que ton app FastAPI est importable ici
+from src.app.main import app
+from src.app.database import get_db
+from src.app.models import Transaction
 
-# Création du client de test (pas besoin de démarrer uvicorn)
+# Création du client de test FastAPI
 client = TestClient(app)
 
+# ------------------------------
+# Fixture pour réinitialiser la base avant chaque test
+# ------------------------------
 @pytest.fixture(autouse=True)
-def reset_db():
-    db = get_db()
-    db.query(Transaction).delete()  # Supprime toutes les transactions
-    db.commit()
-    yield
-    
-def reset_db_before_each_test():
+def reset_db_before_test():
     """
-    Fixture pytest qui réinitialise la base avant chaque test automatiquement.
+    Réinitialise la base de données avant chaque test et remet les comptes à zéro.
     """
+    # Si tu as un endpoint /reset, il suffit de l'appeler :
     client.post("/reset")
+
+    # Optionnel : purge manuelle de la table Transaction (sécurise la DB)
+    db = next(get_db())
+    db.query(Transaction).delete()
+    db.commit()
+
     yield
-    client.post("/reset")  # Réinitialise également après le test (optionnel mais sûr)
+
+    # Réinitialisation après le test (optionnel mais sûr)
+    client.post("/reset")
+
 
 # ------------------------------
-# Tests sur les comptes existants
+# Tests unitaires sur les comptes et transactions
 # ------------------------------
 
 def test_create_account_with_initial_balance():
