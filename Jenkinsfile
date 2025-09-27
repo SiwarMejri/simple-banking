@@ -53,6 +53,7 @@ pipeline {
                         sonar-scanner \
                           -Dsonar.projectKey=simple-banking \
                           -Dsonar.sources=src \
+                          -Dsonar.python.version=3.10 \
                           -Dsonar.python.coverage.reportPaths=coverage.xml \
                           -Dsonar.host.url=http://192.168.240.139:9000 \
                           -Dsonar.token=$SONAR_TOKEN
