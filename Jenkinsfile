@@ -37,8 +37,8 @@ pipeline {
                 echo "🧪 Exécution des tests..."
                 sh """
                     . ${VENV_DIR}/bin/activate
-                    export DATABASE_URL="$DATABASE_URL"
-                    export PYTHONPATH="$PYTHONPATH"
+                    export DATABASE_URL="sqlite:///./test_banking.db"
+                    export PYTHONPATH="$PWD/src/app:$PYTHONPATH"
                     pytest --maxfail=1 --disable-warnings --cov=src --cov-report=xml
                 """
             }
