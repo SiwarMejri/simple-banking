@@ -1,7 +1,7 @@
 # src/app/main.py
 
 # ---------------- Tracing ----------------
-from .tracer_setup import tracer  # ⚠️ Importer en premier pour que le service soit correct
+from app.tracer_setup import tracer  # ⚠️ Importer en premier pour que le service soit correct
 
 # ---------------- FastAPI / Autres imports ----------------
 from fastapi import FastAPI, Request, status, Response, HTTPException, Form, Depends
