@@ -216,7 +216,15 @@ def get_balance(account_id: str, user=Depends(require_permission("read_metrics")
 def reset_state(user=Depends(require_permission("deploy_api"))):
     with tracer.start_as_current_span("reset_api_endpoint") as span:
         span.set_attribute("admin_user", user.get("preferred_username", "unknown"))
-        core.reset_state()
+
+        # --- RESET DES TRANSACTIONS ---
+        with SessionLocal() as db:
+            db.query(Transaction).delete()  # supprime toutes les transactions
+            db.commit()
+
+        # --- RESET EXISTANT DANS core.reset_state() ---
+        core.reset_state()  
+
         send_metric("api_server", "api_reset", 1)
         api_reset_counter.inc()
         span.add_event("API reset executed")
