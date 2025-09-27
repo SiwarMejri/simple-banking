@@ -15,5 +15,12 @@ def process_deposit(transaction: dict, response: Response):
     db.commit()
     db.refresh(tx)
 
-    # Retourner le résultat comme attendu par l'API
-    return {"destination": {"id": destination, "balance": amount}}
+    # Retour complet attendu par le test
+    return {
+        "type": tx.type,
+        "origin": None,
+        "destination": {
+            "id": destination,
+            "balance": amount
+        }
+    }
