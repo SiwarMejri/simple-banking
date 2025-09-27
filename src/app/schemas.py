@@ -1,24 +1,52 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import List, Optional
 
-class EventResponse(BaseModel):
-    id: Optional[int]  # None si l'opération a échoué
-    type: Optional[str]  # None si l'opération a échoué
-    amount: Optional[float]  # None si l'opération a échoué
-    error: Optional[str] = None
+# ----- Compte (on le met d'abord pour éviter les erreurs de type) -----
+class Account(BaseModel):
+    id: str
+    balance: int
 
-class TransactionBase(BaseModel):
+    model_config = {
+        "from_attributes": True
+    }
+
+
+# ----- Utilisateur -----
+class UserBase(BaseModel):
+    name: str
+    email: str
+
+class UserCreate(UserBase):
+    password: str
+
+class User(UserBase):
+    id: int
+    accounts: List[Account] = []
+
+    model_config = {
+        "from_attributes": True
+    }
+
+
+# ----- Compte Create (après User pour lier user_id) -----
+class AccountCreate(BaseModel):
+    id: str
+    user_id: int
+
+
+# ----- Transaction -----
+class TransactionCreate(BaseModel):
     type: str
-    amount: int
     origin: Optional[str] = None
     destination: Optional[str] = None
+    amount: int
 
-class TransactionCreate(TransactionBase):
-    pass
+class TransactionResponse(BaseModel):
+    type: str
+    origin: Optional[Account] = None
+    destination: Optional[Account] = None
 
-class TransactionResponse(TransactionBase):
-    id: str  # correspond à l'ID du compte pour deposit/withdraw/transfer
-
-    class Config:
-        orm_mode = True
+    model_config = {
+        "from_attributes": True
+    }
 
