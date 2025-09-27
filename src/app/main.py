@@ -1,19 +1,18 @@
 # src/app/main.py
 
 # ---------------- Tracing ----------------
-from app.tracer_setup import tracer  # ⚠️ Importer en premier pour que le service soit correct
+from app.tracer_setup import tracer  # ⚠️ Importer en premier pour le bon fonctionnement du tracing
 
 # ---------------- FastAPI / Autres imports ----------------
-from .models.transaction_utils import process_deposit
 from fastapi import FastAPI, Request, status, Response, HTTPException, Form, Depends, Body
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
-import logging
 from passlib.context import CryptContext
 from influxdb_client import InfluxDBClient, Point
 from prometheus_client import Counter
 from prometheus_fastapi_instrumentator import Instrumentator
+import logging
 import os
 import hvac
 
@@ -52,6 +51,7 @@ from .core import core
 from .database import Base, engine, SessionLocal
 from . import crud
 from .models.user import User
+from .models.transaction_utils import process_deposit, process_withdraw, process_transfer
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO,
@@ -143,13 +143,13 @@ def require_permission(permission: str):
 instrumentator = Instrumentator()
 instrumentator.instrument(app).expose(app)
 
-# ---------------- Span de test au démarrage ----------------
+# ---------------- Startup ----------------
 @app.on_event("startup")
 async def startup_event():
     with tracer.start_as_current_span("startup_span"):
         logger.info("FastAPI startup span créé ✅")
 
-# ---------------- Endpoints génériques ----------------
+# ---------------- Endpoints ----------------
 @app.get("/")
 async def root():
     with tracer.start_as_current_span("root_endpoint"):
@@ -175,10 +175,9 @@ async def create_user_form(request: Request, user=Depends(require_permission("ma
         return templates.TemplateResponse("create_user.html", {"request": request})
 
 @app.post("/create_user")
-async def create_user(email: str = Form(...), password: str = Form(...), user=Depends(require_permission("manage_users"))):
+async def create_user(email: str = Form(...), password: str = Form(...), db: Session = Depends(get_db), user=Depends(require_permission("manage_users"))):
     with tracer.start_as_current_span("create_user_endpoint") as span:
         span.set_attribute("admin_user", user.get("preferred_username", "unknown"))
-        db = SessionLocal()
         try:
             hashed_password = get_password_hash(password)
             new_user = User(name=email.split("@")[0], email=email, hashed_password=hashed_password)
@@ -192,8 +191,6 @@ async def create_user(email: str = Form(...), password: str = Form(...), user=De
         except Exception as e:
             db.rollback()
             raise HTTPException(status_code=400, detail=f"Erreur lors de la création : {str(e)}")
-        finally:
-            db.close()
 
 # ---------------- Accounts ----------------
 @app.post("/accounts/", response_model=AccountSchema)
@@ -226,8 +223,6 @@ def reset_state(user=Depends(require_permission("deploy_api"))):
         return {"message": "API reset executed"}
 
 # ---------------- Transactions / Event ----------------
-# On conserve toutes les fonctions process_deposit, process_withdraw, process_transfer
-# Mais l'endpoint /event renvoie maintenant un 201 Created
 @app.post("/event", status_code=status.HTTP_201_CREATED)
 def handle_event(transaction: dict = Body(...), response: Response = None):
     if response is None:
@@ -263,5 +258,3 @@ async def github_webhook(request: Request):
     payload = await request.json()
     logger.info(f"GitHub Webhook payload reçu: {payload}")
     return {"status": "received"}
-
-# ---------------- End of main.py ----------------
