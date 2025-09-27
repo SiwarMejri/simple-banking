@@ -39,7 +39,7 @@ pytest-cov==5.0.0
 opentelemetry-instrumentation==0.39b0
 opentelemetry-exporter-otlp==1.21.0
 opentelemetry-exporter-jaeger==1.21.0
-
+hvac==1.2.3
 
 
 
