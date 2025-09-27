@@ -8,6 +8,12 @@ from src.app.main import app  # ⚠️ Assure-toi que ton app FastAPI est import
 client = TestClient(app)
 
 @pytest.fixture(autouse=True)
+def reset_db():
+    db = get_db()
+    db.query(Transaction).delete()  # Supprime toutes les transactions
+    db.commit()
+    yield
+    
 def reset_db_before_each_test():
     """
     Fixture pytest qui réinitialise la base avant chaque test automatiquement.
