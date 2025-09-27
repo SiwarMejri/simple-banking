@@ -2,25 +2,31 @@
 from fastapi import Response
 from src.app.database import SessionLocal
 from .transaction import Transaction
+from contextlib import contextmanager
 
-db = SessionLocal()
+@contextmanager
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 def process_deposit(transaction: dict, response: Response):
     destination = transaction.get("destination")
     amount = transaction.get("amount")
 
-    # Vérifier les transactions précédentes pour ce destinataire
-    previous_tx = db.query(Transaction).filter_by(destination=destination).all()
-    current_balance = sum(tx.amount for tx in previous_tx if tx.type == "deposit") \
-                      - sum(tx.amount for tx in previous_tx if tx.type == "withdraw")
+    with get_db() as db:
+        previous_tx = db.query(Transaction).filter_by(destination=destination).all()
+        current_balance = sum(tx.amount for tx in previous_tx if tx.type == "deposit") \
+                          - sum(tx.amount for tx in previous_tx if tx.type == "withdraw")
 
-    new_balance = current_balance + amount
+        new_balance = current_balance + amount
 
-    # Créer la transaction
-    tx = Transaction(type="deposit", amount=amount, destination=destination)
-    db.add(tx)
-    db.commit()
-    db.refresh(tx)
+        tx = Transaction(type="deposit", amount=amount, destination=destination)
+        db.add(tx)
+        db.commit()
+        db.refresh(tx)
 
     return {
         "type": tx.type,
@@ -30,9 +36,7 @@ def process_deposit(transaction: dict, response: Response):
             "balance": new_balance
         }
     }
-
-
-def process_withdraw(transaction: dict, response: Response):
+    def process_withdraw(transaction: dict, response: Response):
     origin = transaction.get("origin")
     amount = transaction.get("amount")
 
