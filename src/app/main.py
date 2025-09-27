@@ -4,7 +4,7 @@
 from app.tracer_setup import tracer  # ⚠️ Importer en premier pour que le service soit correct
 
 # ---------------- FastAPI / Autres imports ----------------
-from fastapi import FastAPI, Request, status, Response, HTTPException, Form, Depends
+from fastapi import FastAPI, Request, status, Response, HTTPException, Form, Depends, Body
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
@@ -225,44 +225,64 @@ def reset_state(user=Depends(require_permission("deploy_api"))):
 # ---------------- Transactions ----------------
 def process_deposit(transaction, response: Response):
     with tracer.start_as_current_span("process_deposit") as span:
-        span.set_attribute("destination_account", transaction.destination)
-        account = core.create_or_update_account(transaction.destination, transaction.amount)
+        span.set_attribute("destination_account", transaction["destination"])
+        account = core.create_or_update_account(transaction["destination"], transaction["amount"])
         if not account:
             response.status_code = 404
             return TransactionResponse(type="deposit", origin=None, destination=None)
         span.set_attribute("balance", account.balance)
+        transaction_processed_counter.inc()
         return TransactionResponse(type="deposit", origin=None, destination=AccountSchema(id=account.id, balance=account.balance))
 
 def process_withdraw(transaction, response: Response):
     with tracer.start_as_current_span("process_withdraw") as span:
-        span.set_attribute("origin_account", transaction.origin)
-        account = core.withdraw_from_account(transaction.origin, transaction.amount)
+        span.set_attribute("origin_account", transaction["origin"])
+        account = core.withdraw_from_account(transaction["origin"], transaction["amount"])
         if not account:
             response.status_code = 404
-            return TransactionResponse(type="withdraw", origin=AccountSchema(id=transaction.origin, balance=0), destination=None)
+            return TransactionResponse(type="withdraw", origin=AccountSchema(id=transaction["origin"], balance=0), destination=None)
         span.set_attribute("balance", account.balance)
+        transaction_processed_counter.inc()
         return TransactionResponse(type="withdraw", origin=AccountSchema(id=account.id, balance=account.balance), destination=None)
 
 def process_transfer(transaction, response: Response):
     with tracer.start_as_current_span("process_transfer") as span:
-        span.set_attribute("origin_account", transaction.origin)
-        span.set_attribute("destination_account", transaction.destination)
-        origin, destination = core.transfer_between_accounts(transaction.origin, transaction.destination, transaction.amount)
+        span.set_attribute("origin_account", transaction["origin"])
+        span.set_attribute("destination_account", transaction["destination"])
+        origin, destination = core.transfer_between_accounts(transaction["origin"], transaction["destination"], transaction["amount"])
         if origin is None or destination is None:
             response.status_code = 404
             return TransactionResponse(
                 type="transfer",
-                origin=AccountSchema(id=transaction.origin, balance=0) if origin is None else AccountSchema(id=origin.id, balance=origin.balance),
-                destination=AccountSchema(id=transaction.destination, balance=0) if destination is None else AccountSchema(id=destination.id, balance=destination.balance)
+                origin=AccountSchema(id=transaction["origin"], balance=0) if origin is None else AccountSchema(id=origin.id, balance=origin.balance),
+                destination=AccountSchema(id=transaction["destination"], balance=0) if destination is None else AccountSchema(id=destination.id, balance=destination.balance)
             )
         span.set_attribute("origin_balance", origin.balance)
         span.set_attribute("destination_balance", destination.balance)
+        transaction_processed_counter.inc()
         return TransactionResponse(
             type="transfer",
             origin=AccountSchema(id=origin.id, balance=origin.balance),
             destination=AccountSchema(id=destination.id, balance=destination.balance)
         )
 
+# ---------------- Endpoint générique pour les transactions ----------------
+@app.post("/event")
+def handle_event(transaction: dict = Body(...), response: Response = None):
+    if response is None:
+        from fastapi import Response
+        response = Response()
+    tx_type = transaction.get("type")
+    if tx_type == "deposit":
+        return process_deposit(transaction, response)
+    elif tx_type == "withdraw":
+        return process_withdraw(transaction, response)
+    elif tx_type == "transfer":
+        return process_transfer(transaction, response)
+    else:
+        raise HTTPException(status_code=400, detail="Type de transaction inconnu")
+
+# ---------------- Keycloak Secret ----------------
 @app.get("/keycloak-secret")
 def keycloak_secret(user=Depends(require_permission("manage_users"))):
     with tracer.start_as_current_span("keycloak_secret_endpoint") as span:
@@ -275,7 +295,6 @@ def keycloak_secret(user=Depends(require_permission("manage_users"))):
 async def get_account(user_id: str, user=Depends(require_permission("read_metrics"))):
     with tracer.start_as_current_span("get_account_operation") as span:
         span.set_attribute("user_id", user_id)
-        # Ici on simule le solde pour l'exemple
         return {"user_id": user_id, "balance": 1000}
 
 # ---------------- GitHub Webhook ----------------
