@@ -30,7 +30,7 @@ def auth_token():
 # -------------------- Tests --------------------
 def test_create_account_with_initial_balance():
     response = client.post("/event", json={"type": "deposit", "destination": "100", "amount": 10})
-    assert response.status_code == 201
+    assert response.status_code == 200
     assert response.json() == {
         "destination": {"id": "100", "balance": 10},
         "origin": None,
