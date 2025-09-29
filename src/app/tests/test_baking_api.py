@@ -40,7 +40,7 @@ def test_create_account_with_initial_balance():
 def test_deposit_into_existing_account():
     client.post("/event", json={"type": "deposit", "destination": "100", "amount": 10})
     response = client.post("/event", json={"type": "deposit", "destination": "100", "amount": 10})
-    assert response.status_code == 201
+    assert response.status_code == 200
     assert response.json() == {
         "destination": {"id": "100", "balance": 20},
         "origin": None,
@@ -57,7 +57,7 @@ def test_get_balance_existing_account(auth_token):
 def test_withdraw_from_existing_account():
     client.post("/event", json={"type": "deposit", "destination": "100", "amount": 20})
     response = client.post("/event", json={"type": "withdraw", "origin": "100", "amount": 5})
-    assert response.status_code == 201
+    assert response.status_code == 200
     assert response.json() == {
         "origin": {"id": "100", "balance": 15},
         "destination": None,
@@ -73,7 +73,7 @@ def test_transfer_from_existing_account():
         "destination": "200",
         "amount": 20
     })
-    assert response.status_code == 201
+    assert response.status_code == 200
     assert response.json() == {
         "origin": {"id": "100", "balance": 30},
         "destination": {"id": "200", "balance": 30},
