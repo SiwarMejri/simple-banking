@@ -42,7 +42,7 @@ pipeline {
                         script: """
                             . ${VENV_DIR}/bin/activate
                             export DATABASE_URL="${DATABASE_URL}"
-                            export PYTHONPATH=${PYTHONPATH}
+                            export PYTHONPATH=$WORKSPACE/src
                             pytest --maxfail=0 --disable-warnings --cov=src --cov-report=xml -v || true
                         """,
                         returnStatus: true
