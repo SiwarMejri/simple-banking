@@ -37,46 +37,29 @@ pipeline {
         stage('Tests Unitaires') {
             steps {
                 echo "🧪 Exécution des tests unitaires avec TestClient..."
-                script {
-                    def testResult = sh(
-                        script: """
-                            . ${VENV_DIR}/bin/activate
-                            export DATABASE_URL="${DATABASE_URL}"
-                            export PYTHONPATH=${PYTHONPATH}
-                            pytest --maxfail=0 --disable-warnings --cov=src --cov-report=xml -v || true
-                        """,
-                        returnStatus: true
-                    )
-                    if (testResult != 0) {
-                        echo "⚠️ Des tests ont échoué (code ${testResult}) mais on continue le pipeline..."
-                        currentBuild.result = "UNSTABLE"
-                    }
-                }
+                sh """
+                    . ${VENV_DIR}/bin/activate
+                    export DATABASE_URL="${DATABASE_URL}"
+                    export PYTHONPATH=/var/lib/jenkins/workspace/simple-banking_main
+                    pytest --maxfail=1 --disable-warnings --cov=src --cov-report=xml -v
+                """
             }
         }
 
         stage('Analyse SAST avec SonarQube') {
+            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "🔎 Analyse SAST avec SonarQube..."
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                    script {
-                        def sonarResult = sh(
-                            script: """
-                                sonar-scanner \
-                                  -Dsonar.projectKey=simple-banking \
-                                  -Dsonar.sources=src \
-                                  -Dsonar.python.version=3.10 \
-                                  -Dsonar.python.coverage.reportPaths=coverage.xml \
-                                  -Dsonar.host.url=http://192.168.240.139:9000 \
-                                  -Dsonar.token=$SONAR_TOKEN || true
-                            """,
-                            returnStatus: true
-                        )
-                        if (sonarResult != 0) {
-                            echo "⚠️ SonarQube a rencontré des problèmes"
-                            currentBuild.result = "UNSTABLE"
-                        }
-                    }
+                    sh """
+                        sonar-scanner \
+                          -Dsonar.projectKey=simple-banking \
+                          -Dsonar.sources=src \
+                          -Dsonar.python.version=3.10 \
+                          -Dsonar.python.coverage.reportPaths=coverage.xml \
+                          -Dsonar.host.url=http://192.168.240.139:9000 \
+                          -Dsonar.token=$SONAR_TOKEN
+                    """
                 }
             }
         }
@@ -84,54 +67,34 @@ pipeline {
         stage('Build Docker') {
             steps {
                 echo "🐳 Construction de l'image Docker..."
-                script {
-                    def dockerResult = sh(script: "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} . || true", returnStatus: true)
-                    if (dockerResult != 0) {
-                        echo "⚠️ Docker build a échoué"
-                        currentBuild.result = "UNSTABLE"
-                    }
-                }
+                sh "docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
             }
         }
 
         stage('Scan de vulnérabilités avec Trivy') {
             steps {
                 echo "🛡️ Scan des vulnérabilités avec Trivy..."
-                script {
-                    def trivyResult = sh(script: """
-                        trivy fs --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
-                        trivy image --severity CRITICAL,HIGH --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG} || true
-                    """, returnStatus: true)
-                    if (trivyResult != 0) {
-                        echo "⚠️ Trivy a rencontré des problèmes"
-                        currentBuild.result = "UNSTABLE"
-                    }
-                }
+                sh """
+                    trivy fs --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
+                    trivy image --severity CRITICAL,HIGH --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG} || true
+                """
                 archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
             }
         }
 
         stage('Generate PDF, Email & Push Docker') {
+            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "📄 Génération du rapport PDF + envoi email + push Docker"
-                script {
-                    def reportResult = sh(
-                        script: """
-                            . ${VENV_DIR}/bin/activate
-                            python3 generate_full_report.py \
-                              --trivy-json trivy-report.json \
-                              --trivy-image-json trivy-image-report.json \
-                              --sonarqube-project simple-banking \
-                              --output full_report.pdf || true
-                        """,
-                        returnStatus: true
-                    )
-                    if (reportResult != 0) {
-                        echo "⚠️ Génération du PDF a échoué"
-                        currentBuild.result = "UNSTABLE"
-                    }
-                }
+                sh """
+                    . ${VENV_DIR}/bin/activate
+                    python3 generate_full_report.py \
+                      --trivy-json trivy-report.json \
+                      --trivy-image-json trivy-image-report.json \
+                      --sonarqube-project simple-banking \
+                      --output full_report.pdf
+                """
                 archiveArtifacts artifacts: 'full_report.pdf', allowEmptyArchive: false
 
                 emailext(
@@ -144,21 +107,12 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
                                                  usernameVariable: 'DOCKER_USER',
                                                  passwordVariable: 'DOCKER_PASS')]) {
-                    script {
-                        def pushResult = sh(
-                            script: '''
-                                echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                                docker tag siwarmejri/simple-banking:latest $DOCKER_USER/simple-banking:latest
-                                docker push $DOCKER_USER/simple-banking:latest || true
-                                docker logout
-                            ''',
-                            returnStatus: true
-                        )
-                        if (pushResult != 0) {
-                            echo "⚠️ Push Docker a échoué"
-                            currentBuild.result = "UNSTABLE"
-                        }
-                    }
+                    sh '''
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        docker tag siwarmejri/simple-banking:latest $DOCKER_USER/simple-banking:latest
+                        docker push $DOCKER_USER/simple-banking:latest
+                        docker logout
+                    '''
                 }
             }
         }
@@ -167,7 +121,6 @@ pipeline {
     post {
         always { echo "🏁 Pipeline terminé" }
         success { echo "✅ Pipeline réussi" }
-        unstable { echo "⚠️ Pipeline terminé avec des erreurs (UNSTABLE)" }
         failure { echo "❌ Pipeline échoué" }
     }
-}
+}  
