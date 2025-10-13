@@ -34,26 +34,34 @@ pipeline {
             }
         }
 
-        stage('Tests Unitaires') {
-            steps {
-                echo "🧪 Exécution des tests unitaires avec TestClient..."
-                script {
-                    def testResult = sh(
-                        script: """
-                            . ${VENV_DIR}/bin/activate
-                            export DATABASE_URL="${DATABASE_URL}"
-                            export PYTHONPATH=$WORKSPACE/src
-                            pytest --maxfail=0 --disable-warnings --cov=src --cov-report=xml -v || true
-                        """,
-                        returnStatus: true
-                    )
-                    if (testResult != 0) {
-                        echo "⚠️ Des tests ont échoué (code ${testResult}) mais on continue le pipeline..."
-                        currentBuild.result = "UNSTABLE"
-                    }
-                }
+stage('Tests Unitaires') {
+    steps {
+        echo "🧪 Exécution des tests unitaires avec TestClient..."
+        script {
+            // Active la venv et lance pytest
+            def testResult = sh(
+                script: """
+                    set -o pipefail
+                    . ${VENV_DIR}/bin/activate
+                    export DATABASE_URL="${DATABASE_URL}"
+                    export PYTHONPATH=$WORKSPACE/src
+                    pytest --maxfail=0 --disable-warnings --cov=src --cov-report=xml -v | tee pytest-output.log
+                """,
+                returnStatus: true
+            )
+            
+            // Analyse du retour de pytest
+            if (testResult != 0) {
+                echo "⚠️ Certains tests ont échoué, voir la console et pytest-output.log"
+                currentBuild.result = "UNSTABLE"
+            } else {
+                echo "✅ Tous les tests unitaires ont réussi"
             }
         }
+        // Archive le log des tests pour consultation
+        archiveArtifacts artifacts: 'pytest-output.log', allowEmptyArchive: false
+    }
+}
 
 
 stage('Analyse SAST avec SonarQube') {
