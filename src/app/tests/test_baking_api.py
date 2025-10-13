@@ -5,13 +5,23 @@ from fastapi.testclient import TestClient
 from src.app.main import app
 from src.app.database import get_db
 from src.app.models.transaction_utils import Transaction
+import os
 
 # Active le mode test
-import os
 os.environ["TESTING"] = "1"
+
+# ------------------ Middleware fake auth pour tests ------------------
+if os.environ.get("TESTING") == "1":
+    @app.middleware("http")
+    async def fake_auth_middleware(request, call_next):
+        """Injecte un utilisateur fictif pour bypass l'auth"""
+        request.state.user = "test_user"
+        response = await call_next(request)
+        return response
 
 client = TestClient(app)
 
+# ------------------ Fixtures ------------------
 @pytest.fixture(autouse=True)
 def reset_db_before_test():
     """Réinitialise la DB avant chaque test"""
@@ -24,8 +34,8 @@ def reset_db_before_test():
 
 @pytest.fixture
 def auth_token():
-    """Token factice pour bypass JWT"""
-    return "test-token"
+    """Token factice pour bypass JWT en mode test"""
+    return "any-token"  # Middleware test ignore le contenu
 
 # -------------------- Tests --------------------
 def test_create_account_with_initial_balance():
