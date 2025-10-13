@@ -3,59 +3,34 @@
 import pytest
 from fastapi.testclient import TestClient
 from src.app.main import app
-from src.app.database import get_db
-from src.app.models.transaction_utils import Transaction
-import os
-
-# Active le mode test
-os.environ["TESTING"] = "1"
-
-# ------------------ Middleware fake auth pour tests ------------------
-if os.environ.get("TESTING") == "1":
-    @app.middleware("http")
-    async def fake_auth_middleware(request, call_next):
-        """Injecte un utilisateur fictif pour bypass l'auth"""
-        request.state.user = "test_user"
-        response = await call_next(request)
-        return response
+from src.app.core import reset_state
 
 client = TestClient(app)
 
 # ------------------ Fixtures ------------------
 @pytest.fixture(autouse=True)
 def reset_db_before_test():
-    """Réinitialise la DB avant chaque test"""
-    client.post("/reset")
-    db = next(get_db())
-    db.query(Transaction).delete()
-    db.commit()
+    """Réinitialise l'état avant et après chaque test"""
+    reset_state()
     yield
-    client.post("/reset")
+    reset_state()
 
 @pytest.fixture
 def auth_token():
     """Token factice pour bypass JWT en mode test"""
-    return "any-token"  # Middleware test ignore le contenu
+    return "any-token"
 
-# -------------------- Tests --------------------
+# ------------------ Tests ------------------
 def test_create_account_with_initial_balance():
     response = client.post("/event", json={"type": "deposit", "destination": "100", "amount": 10})
     assert response.status_code == 200
-    assert response.json() == {
-        "destination": {"id": "100", "balance": 10},
-        "origin": None,
-        "type": "deposit"
-    }
+    assert response.json() == {"destination": {"id": "100", "balance": 10}, "origin": None, "type": "deposit"}
 
 def test_deposit_into_existing_account():
     client.post("/event", json={"type": "deposit", "destination": "100", "amount": 10})
     response = client.post("/event", json={"type": "deposit", "destination": "100", "amount": 10})
     assert response.status_code == 200
-    assert response.json() == {
-        "destination": {"id": "100", "balance": 20},
-        "origin": None,
-        "type": "deposit"
-    }
+    assert response.json() == {"destination": {"id": "100", "balance": 20}, "origin": None, "type": "deposit"}
 
 def test_get_balance_existing_account(auth_token):
     client.post("/event", json={"type": "deposit", "destination": "100", "amount": 20})
@@ -68,24 +43,11 @@ def test_withdraw_from_existing_account():
     client.post("/event", json={"type": "deposit", "destination": "100", "amount": 20})
     response = client.post("/event", json={"type": "withdraw", "origin": "100", "amount": 5})
     assert response.status_code == 200
-    assert response.json() == {
-        "origin": {"id": "100", "balance": 15},
-        "destination": None,
-        "type": "withdraw"
-    }
+    assert response.json() == {"origin": {"id": "100", "balance": 15}, "destination": None, "type": "withdraw"}
 
 def test_transfer_from_existing_account():
     client.post("/event", json={"type": "deposit", "destination": "100", "amount": 50})
     client.post("/event", json={"type": "deposit", "destination": "200", "amount": 10})
-    response = client.post("/event", json={
-        "type": "transfer",
-        "origin": "100",
-        "destination": "200",
-        "amount": 20
-    })
+    response = client.post("/event", json={"type": "transfer", "origin": "100", "destination": "200", "amount": 20})
     assert response.status_code == 200
-    assert response.json() == {
-        "origin": {"id": "100", "balance": 30},
-        "destination": {"id": "200", "balance": 30},
-        "type": "transfer"
-    }
+    assert response.json() == {"origin": {"id": "100", "balance": 30}, "destination": {"id": "200", "balance": 30}, "type": "transfer"}
