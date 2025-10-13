@@ -28,7 +28,6 @@ from .database import Base, engine, SessionLocal
 from . import crud
 from .models.user import User
 from .models.account import Account
-from . import swagger_roles
 from .dependencies import get_user_dep  # ✅ nouvelle dépendance
 from .models.transaction_utils import process_deposit, process_withdraw, process_transfer, Transaction
 
