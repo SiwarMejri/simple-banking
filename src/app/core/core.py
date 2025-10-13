@@ -40,3 +40,11 @@ def transfer_between_accounts(origin: str, destination: str, amount: int) -> (Op
         accounts[destination] = Account(id=destination, balance=0)
     accounts[destination].balance += amount
     return accounts[origin], accounts[destination]
+def reset_state():
+    """
+    Réinitialise l'état de la base ou des données pour les tests.
+    """
+    # Exemple avec SQLAlchemy
+    from src.app.core.models.database import Base, engine
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
