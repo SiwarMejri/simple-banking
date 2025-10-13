@@ -3,7 +3,7 @@
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
-from src.app.core import reset_state
+from app.core import reset_state
 
 client = TestClient(app)
 
