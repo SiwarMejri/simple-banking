@@ -1,7 +1,8 @@
 # src/app/core.py
 
 from typing import Optional, Dict
-from app.models.transaction_utils import Transaction, Account
+from app.models.transaction_utils import Transaction
+from app.models.account import Account
 
 # ---------------- Stockage en mémoire ----------------
 accounts: Dict[str, Account] = {}
