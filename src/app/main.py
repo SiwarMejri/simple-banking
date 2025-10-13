@@ -2,7 +2,6 @@
 
 # ---------------- Tracing ----------------
 from .tracer_setup import tracer  # ⚠️ Importer en premier
-from .client_routes import router as client_router
 
 # ---------------- FastAPI / Autres imports ----------------
 from fastapi import FastAPI, Request, status, Response, HTTPException, Form, Depends, Header, Body
@@ -68,9 +67,6 @@ def get_db():
     finally:
         db.close()
 
-# ---------------- Routers ----------------
-app.include_router(client_router)
-app.include_router(swagger_roles.router)
 
 # ---------------- Vault ----------------
 VAULT_ADDR = os.environ.get("VAULT_ADDR", "http://192.168.240.143:8200")
