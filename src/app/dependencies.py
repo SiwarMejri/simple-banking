@@ -1,6 +1,5 @@
 # src/app/dependencies.py
 import os
-from .main import get_current_user as real_get_current_user
 
 TESTING = os.environ.get("TESTING", "0") == "1"
 
