@@ -38,10 +38,10 @@ stage('Tests Unitaires') {
     steps {
         echo "🧪 Exécution des tests unitaires avec TestClient..."
         script {
-            // Active la venv et lance pytest
+            // Utiliser bash explicitement
             def testResult = sh(
                 script: """
-                    set -o pipefail
+                    #!/bin/bash
                     . ${VENV_DIR}/bin/activate
                     export DATABASE_URL="${DATABASE_URL}"
                     export PYTHONPATH=$WORKSPACE/src
@@ -49,8 +49,7 @@ stage('Tests Unitaires') {
                 """,
                 returnStatus: true
             )
-            
-            // Analyse du retour de pytest
+
             if (testResult != 0) {
                 echo "⚠️ Certains tests ont échoué, voir la console et pytest-output.log"
                 currentBuild.result = "UNSTABLE"
@@ -58,7 +57,8 @@ stage('Tests Unitaires') {
                 echo "✅ Tous les tests unitaires ont réussi"
             }
         }
-        // Archive le log des tests pour consultation
+
+        // Archive le log
         archiveArtifacts artifacts: 'pytest-output.log', allowEmptyArchive: false
     }
 }
