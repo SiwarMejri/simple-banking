@@ -1,64 +1,37 @@
 # src/app/main.py
 
 # ---------------- Tracing ----------------
-from app.tracer_setup import tracer  # ⚠️ Importer en premier
+from .tracer_setup import tracer  # ⚠️ Importer en premier
+from .client_routes import router as client_router
 
 # ---------------- FastAPI / Autres imports ----------------
-from fastapi import FastAPI, Request, status, Response, HTTPException, Form, Depends, Body
+from fastapi import FastAPI, Request, status, Response, HTTPException, Form, Depends, Header, Body
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2AuthorizationCodeBearer
+from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
+import logging
 from passlib.context import CryptContext
 from influxdb_client import InfluxDBClient, Point
 from prometheus_client import Counter
 from prometheus_fastapi_instrumentator import Instrumentator
-import logging
 import os
 import hvac
-
-# ---------------- JWT / Keycloak ----------------
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jwt import PyJWTError, decode as jwt_decode
 from jwt import PyJWKClient
-
-KEYCLOAK_URL = "http://192.168.240.143:8080"
-REALM = "simple-banking-realm"
-JWKS_URL = f"{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/certs"
-ISSUER = f"{KEYCLOAK_URL}/realms/{REALM}"
-AUDIENCE = "api-rest-client"
-
-security = HTTPBearer()
-
-# Flag pour tests (désactive auth JWT)
-TESTING = os.environ.get("TESTING", "0") == "1"
-
-def get_current_user(token: HTTPAuthorizationCredentials = Depends(security)):
-    if TESTING:
-        # User factice pour tests
-        return {"preferred_username": "testuser", "realm_access": {"roles": ["admin"]}}
-    try:
-        token_str = token.credentials
-        jwk_client = PyJWKClient(JWKS_URL)
-        signing_key = jwk_client.get_signing_key_from_jwt(token_str).key
-        payload = jwt_decode(
-            token_str,
-            signing_key,
-            algorithms=["RS256"],
-            audience=AUDIENCE,
-            issuer=ISSUER
-        )
-        return payload
-    except PyJWTError as e:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Token invalide: {str(e)}")
+from pydantic import BaseModel
 
 # ---------------- Imports internes ----------------
-from .schemas import TransactionCreate, TransactionResponse, AccountCreate, Account as AccountSchema
+from .schemas import TransactionResponse, AccountCreate, Account as AccountSchema
 from .core import core
 from .database import Base, engine, SessionLocal
 from . import crud
 from .models.user import User
-from .models.transaction_utils import process_deposit, process_withdraw, process_transfer
-from .models.transaction_utils import Transaction
+from .models.account import Account
+from . import swagger_roles
+from .dependencies import get_user_dep  # ✅ nouvelle dépendance
+from .models.transaction_utils import process_deposit, process_withdraw, process_transfer, Transaction
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO,
@@ -82,7 +55,7 @@ def send_metric(host: str, metric_name: str, value: float):
 # ---------------- FastAPI ----------------
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
-templates = Jinja2Templates(directory="src/app/templates")
+templates = Jinja2Templates(directory="src/templates")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def get_password_hash(password: str):
@@ -95,15 +68,46 @@ def get_db():
     finally:
         db.close()
 
+# ---------------- Routers ----------------
+app.include_router(client_router)
+app.include_router(swagger_roles.router)
+
 # ---------------- Vault ----------------
 VAULT_ADDR = os.environ.get("VAULT_ADDR", "http://192.168.240.143:8200")
 VAULT_ROLE_ID = os.environ.get("VAULT_ROLE_ID")
 VAULT_SECRET_ID = os.environ.get("VAULT_SECRET_ID")
-
 vault_client = hvac.Client(url=VAULT_ADDR)
-KEYCLOAK_CLIENT_SECRET = None  # Bypass Vault pour tests
+KEYCLOAK_CLIENT_SECRET = None
 
-# ---------------- Rôles ----------------
+if VAULT_ROLE_ID and VAULT_SECRET_ID:
+    try:
+        auth_response = vault_client.auth.approle.login(
+            role_id=VAULT_ROLE_ID,
+            secret_id=VAULT_SECRET_ID
+        )
+        vault_client.token = auth_response['auth']['client_token']
+        logger.info("Vault AppRole authentication successful ✅")
+    except Exception as e:
+        logger.error(f"Erreur Vault AppRole: {e}")
+        vault_client = None
+else:
+    logger.warning("VAULT_ROLE_ID ou VAULT_SECRET_ID non définis, Vault non authentifié ❌")
+    vault_client = None
+
+def get_keycloak_secret():
+    if vault_client is None:
+        logger.warning("Vault non disponible, retour du secret Keycloak par défaut ou None")
+        return None
+    try:
+        secret = vault_client.secrets.kv.v2.read_secret_version(path='keycloak')
+        return secret['data']['data']['api-rest-client-secret']
+    except Exception as e:
+        logger.error(f"Erreur récupération secret Keycloak depuis Vault: {e}")
+        return None
+
+KEYCLOAK_CLIENT_SECRET = get_keycloak_secret()
+
+# ---------------- Roles ----------------
 ROLES_PERMISSIONS = {
     "admin": {"manage_users": True, "deploy_api": True, "read_metrics": True, "write_db": True},
     "developer": {"manage_users": False, "deploy_api": True, "read_metrics": True, "write_db": True},
@@ -111,7 +115,7 @@ ROLES_PERMISSIONS = {
 }
 
 def require_permission(permission: str):
-    def checker(user=Depends(get_current_user)):
+    def checker(user=Depends(get_user_dep)):
         user_roles = user.get("realm_access", {}).get("roles", [])
         allowed = any(ROLES_PERMISSIONS.get(role, {}).get(permission, False) for role in user_roles)
         if not allowed:
@@ -129,40 +133,137 @@ async def startup_event():
     with tracer.start_as_current_span("startup_span"):
         logger.info("FastAPI startup span créé ✅")
 
-# ---------------- Login test ----------------
-@app.post("/login")
-def login_for_tests(username: str = Body(...), password: str = Body(...)):
-    if username == "testuser" and password == "testpass":
-        return {"access_token": "test-token"}
-    raise HTTPException(status_code=401, detail="Invalid credentials")
+# ---------------- Swagger sécurisé ----------------
+@app.get("/docs", include_in_schema=False)
+def custom_swagger_ui_html():
+    from fastapi.openapi.utils import get_openapi
+    return get_swagger_ui_html(
+        openapi_url="/openapi-roles.json",
+        title="Banking API Docs",
+        oauth2_redirect_url="/docs/oauth2-redirect",
+        init_oauth={
+            "clientId": "api-rest-client",
+            "clientSecret": KEYCLOAK_CLIENT_SECRET,
+            "usePkceWithAuthorizationCodeGrant": True,
+            "scopes": "openid profile email",
+        },
+    )
+
+@app.get("/openapi-roles.json", include_in_schema=False)
+def openapi_roles(authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        token_str = authorization.split(" ")[1]
+        jwk_client = PyJWKClient(f"{KEYCLOAK_URL}/realms/{REALM}/protocol/openid-connect/certs")
+        signing_key = jwk_client.get_signing_key_from_jwt(token_str).key
+        jwt_decode(token_str, signing_key, algorithms=["RS256"], audience="api-rest-client", issuer=f"{KEYCLOAK_URL}/realms/{REALM}")
+    except Exception as e:
+        raise HTTPException(status_code=401, detail=f"Token invalide: {str(e)}")
+    from fastapi.openapi.utils import get_openapi
+    return JSONResponse(get_openapi(title="Banking API", version="1.0.0", routes=app.routes))
 
 # ---------------- Endpoints ----------------
 @app.get("/")
 async def root():
-    return {"message": "Hello, Simple Banking API!"}
+    with tracer.start_as_current_span("root_endpoint"):
+        return {"message": "Hello, Simple Banking API!"}
+
+@app.get("/protected")
+async def protected(user=Depends(get_user_dep)):
+    return {"message": f"Hello {user['preferred_username']}, vous êtes authentifié"}
+
+# ---------------- User management ----------------
+@app.get("/users/me")
+def read_users_me(user=Depends(get_user_dep)):
+    return {"user": user}
+
+@app.get("/create_user", response_class=HTMLResponse)
+async def create_user_form(request: Request, user=Depends(require_permission("manage_users"))):
+    return templates.TemplateResponse("create_user.html", {"request": request})
+
+@app.post("/create_user")
+async def create_user(email: str = Form(...), password: str = Form(...), user=Depends(require_permission("manage_users"))):
+    db = SessionLocal()
+    try:
+        hashed_password = get_password_hash(password)
+        new_user = User(name=email.split("@")[0], email=email, hashed_password=hashed_password)
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        send_metric("api_server", "user_created", 1)
+        user_created_counter.inc()
+        return {"message": "Utilisateur créé ✅", "user_id": new_user.id, "email": new_user.email}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Erreur lors de la création : {str(e)}")
+    finally:
+        db.close()
+
+# ---------------- Accounts ----------------
+@app.post("/accounts/", response_model=AccountSchema)
+def create_account(account: AccountCreate, db: Session = Depends(get_db), user=Depends(require_permission("write_db"))):
+    result = crud.create_account(db, account)
+    return result
 
 @app.get("/balance")
-def get_balance(account_id: str, user=Depends(get_current_user)):
+def get_balance(account_id: str, user=Depends(require_permission("read_metrics"))):
     account = core.get_account_balance(account_id)
     if account is None:
         raise HTTPException(status_code=404, detail="Account not found")
     return {"account_id": account_id, "balance": account.balance}
 
-@app.post("/event")
-def handle_event(transaction: dict = Body(...), response: Response = None):
-    if response is None:
-        response = Response()
-    tx_type = transaction.get("type")
-    if tx_type == "deposit":
-        return process_deposit(transaction, response)
-    elif tx_type == "withdraw":
-        return process_withdraw(transaction, response)
-    elif tx_type == "transfer":
-        return process_transfer(transaction, response)
-    else:
-        raise HTTPException(status_code=400, detail="Type de transaction inconnu")
-
-@app.post("/reset")
-def reset_state():
+@app.post("/reset", status_code=status.HTTP_200_OK)
+def reset_state(user=Depends(require_permission("deploy_api"))):
     core.reset_state()
+    send_metric("api_server", "api_reset", 1)
+    api_reset_counter.inc()
     return {"message": "API reset executed"}
+
+# ---------------- Transactions ----------------
+class TransactionRequest(BaseModel):
+    type: str  # "deposit", "withdraw", "transfer"
+    origin: str | None = None
+    destination: str | None = None
+    amount: float
+
+@app.post("/event", response_model=TransactionResponse)
+async def process_transaction(transaction: TransactionRequest, response: Response, db: Session = Depends(get_db), user=Depends(require_permission("write_db"))):
+    transaction_processed_counter.inc()
+    if transaction.type == "deposit":
+        account = core.create_or_update_account(transaction.destination, transaction.amount)
+        if not account:
+            response.status_code = 404
+            return TransactionResponse(type="deposit", origin=None, destination=None)
+        return TransactionResponse(type="deposit", origin=None, destination=AccountSchema(id=account.id, balance=account.balance))
+    elif transaction.type == "withdraw":
+        account = core.withdraw_from_account(transaction.origin, transaction.amount)
+        if not account:
+            response.status_code = 404
+            return TransactionResponse(type="withdraw", origin=AccountSchema(id=transaction.origin, balance=0), destination=None)
+        return TransactionResponse(type="withdraw", origin=AccountSchema(id=account.id, balance=account.balance), destination=None)
+    elif transaction.type == "transfer":
+        origin, destination = core.transfer_between_accounts(transaction.origin, transaction.destination, transaction.amount)
+        if origin is None or destination is None:
+            response.status_code = 404
+        return TransactionResponse(
+            type="transfer",
+            origin=AccountSchema(id=origin.id, balance=origin.balance) if origin else AccountSchema(id=transaction.origin, balance=0),
+            destination=AccountSchema(id=destination.id, balance=destination.balance) if destination else AccountSchema(id=transaction.destination, balance=0)
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Invalid transaction type")
+
+# ---------------- Keycloak secret ----------------
+@app.get("/keycloak-secret")
+def keycloak_secret(user=Depends(require_permission("manage_users"))):
+    if KEYCLOAK_CLIENT_SECRET:
+        return {"keycloak_client_secret": KEYCLOAK_CLIENT_SECRET}
+    raise HTTPException(status_code=500, detail="Secret Keycloak non disponible depuis Vault")
+
+# ---------------- GitHub Webhook ----------------
+@app.post("/github-webhook/")
+async def github_webhook(request: Request):
+    payload = await request.json()
+    print(payload)
+    return {"status": "received"}
