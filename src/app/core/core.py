@@ -1,16 +1,26 @@
-# src/app/core.py
+# src/app/core/core.py
 
 from typing import Optional, Dict
-from app.models.transaction_utils import Transaction
-from app.models.account import Account
+from models.transaction_utils import Transaction
+from models.account import Account
+from models.database import Base, engine
 
 # ---------------- Stockage en mémoire ----------------
 accounts: Dict[str, Account] = {}
 
 def reset_state():
-    """Reset complet pour tests ou redémarrage"""
+    """
+    Réinitialise l'état complet :
+    - Vide le cache mémoire (comptes et transactions)
+    - Réinitialise la base SQLAlchemy
+    """
+    # Réinitialisation en mémoire
     accounts.clear()
     Transaction.transactions.clear()
+
+    # Réinitialisation base de données
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
 
 def get_account_balance(account_id: str) -> Optional[Account]:
     """Retourne le compte existant ou None"""
@@ -40,11 +50,3 @@ def transfer_between_accounts(origin: str, destination: str, amount: int) -> (Op
         accounts[destination] = Account(id=destination, balance=0)
     accounts[destination].balance += amount
     return accounts[origin], accounts[destination]
-def reset_state():
-    """
-    Réinitialise l'état de la base ou des données pour les tests.
-    """
-    # Exemple avec SQLAlchemy
-    from src.app.core.models.database import Base, engine
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
