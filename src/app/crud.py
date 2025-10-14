@@ -1,7 +1,8 @@
+# src/app/crud.py
 from sqlalchemy.orm import Session
-from src.app.models.user import User
-from src.app.models.account import Account
-from src.app import schemas
+from models.user import User  # ✅ corrigé
+from models.account import Account  # ✅ corrigé
+from models import schemas  # ✅ corrigé
 
 # --------- USER CRUD ---------
 def create_user(db: Session, user: schemas.UserCreate):
@@ -27,7 +28,7 @@ def create_account(db: Session, account: schemas.AccountCreate):
     db_account = Account(
         id=account.id,
         user_id=account.user_id,
-        balance=0  # Initial balance
+        balance=0
     )
     db.add(db_account)
     db.commit()
@@ -39,4 +40,3 @@ def update_balance(db: Session, account: Account, amount: int):
     db.commit()
     db.refresh(account)
     return account
-
