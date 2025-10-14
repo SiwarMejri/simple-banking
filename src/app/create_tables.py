@@ -1,7 +1,6 @@
-from app.database import Base, engine
-from app.models.models import User, Account, Transaction
+# src/app/create_tables.py
+from database import Base, engine  # ✅ corrigé
+from models.models import User, Account, Transaction  # ✅ corrigé
 
-# Crée toutes les tables dans la base si elles n'existent pas
 Base.metadata.create_all(bind=engine)
-
 print("✅ Tables créées avec succès dans la base 'banking'.")
