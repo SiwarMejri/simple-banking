@@ -1,7 +1,6 @@
 # src/app/core/core.py
 
 from typing import Optional, Dict
-from models.transaction_utils import Transaction
 from models.account import Account
 from models.database import Base, engine
 
@@ -11,13 +10,12 @@ accounts: Dict[str, Account] = {}
 def reset_state():
     """
     Réinitialise l'état complet :
-    - Vide le cache mémoire (comptes et transactions)
+    - Vide le cache mémoire (comptes)
     - Réinitialise la base SQLAlchemy
     """
     # Réinitialisation en mémoire
     accounts.clear()
-    Transaction.transactions.clear()
-
+    
     # Réinitialisation base de données
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
