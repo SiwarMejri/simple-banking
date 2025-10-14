@@ -1,25 +1,31 @@
+# src/app/tests/test_api.py
+import os
 import pytest
 from starlette.testclient import TestClient
 from src.app.main import app
 from src.app.database import Base, engine
 from src.app.core import core
-import os
 
+# ---------------- Fixture pour réinitialiser la DB avant et après chaque test ----------------
 @pytest.fixture(autouse=True)
 def reset_db():
     os.environ["TESTING"] = "1"
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
-    core.reset_state()
-    yield
-    Base.metadata.drop_all(bind=engine)
-    core.reset_state()
-    os.environ.pop("TESTING", None)
+    try:
+        Base.metadata.drop_all(bind=engine)
+        Base.metadata.create_all(bind=engine)
+        core.reset_state()
+        yield
+    finally:
+        Base.metadata.drop_all(bind=engine)
+        core.reset_state()
+        os.environ.pop("TESTING", None)
 
+# ---------------- Fixture client ----------------
 @pytest.fixture
 def client():
     return TestClient(app)
 
+# ---------------- Tests ----------------
 def test_create_account_with_initial_balance(client):
     response = client.post("/event", json={"type": "deposit", "destination": "100", "amount": 10})
     assert response.status_code == 200
@@ -30,6 +36,7 @@ def test_create_account_with_initial_balance(client):
     }
 
 def test_get_balance_existing_account(client):
+    # Création d'un dépôt pour avoir un solde
     client.post("/event", json={"type": "deposit", "destination": "100", "amount": 20})
     response = client.get("/balance", params={"account_id": "100"})
     assert response.status_code == 200
