@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Response, HTTPException, Depends, Form, Header
+from fastapi import FastAPI, Request, Response, HTTPException, Depends, Form
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -15,7 +15,6 @@ import crud
 from models.user import User
 from models.account import Account
 from schemas import TransactionResponse, AccountCreate, Account as AccountSchema
-from dependencies import get_current_user
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO,
@@ -38,24 +37,9 @@ def get_db():
     finally:
         db.close()
 
-# ---------------- Roles ----------------
-ROLES_PERMISSIONS = {
-    "admin": {"manage_users": True, "deploy_api": True, "read_metrics": True, "write_db": True},
-    "developer": {"manage_users": False, "deploy_api": True, "read_metrics": True, "write_db": True},
-    "auditor": {"manage_users": False, "deploy_api": False, "read_metrics": True, "write_db": False}
-}
-
-def require_permission(permission: str):
-    def checker(user=Depends(get_current_user)):
-        user_roles = user.get("realm_access", {}).get("roles", []) if user else []
-        allowed = any(ROLES_PERMISSIONS.get(role, {}).get(permission, False) for role in user_roles)
-        if not allowed:
-            raise HTTPException(status_code=403, detail=f"Permission '{permission}' requise")
-        return user
-    return checker
-
 # ---------------- Prometheus ----------------
 def get_or_create_counter(name: str, description: str):
+    # note: using private registry internals to check existing collectors
     if name in REGISTRY._names_to_collectors:
         return REGISTRY._names_to_collectors[name]
     return Counter(name, description)
@@ -72,20 +56,24 @@ instrumentator.instrument(app).expose(app)
 async def root():
     return {"message": "Hello, Simple Banking API!"}
 
+# Open endpoint (no authentication)
 @app.get("/protected")
-async def protected(user=Depends(get_current_user)):
-    return {"message": f"Hello {user.get('preferred_username','test-user')}, vous êtes authentifié"}
+async def protected():
+    # Previously returned authenticated user info; now public/open endpoint
+    return {"message": "Hello, endpoint accessible librement (auth supprimée)."}
 
 @app.get("/users/me")
-def read_users_me(user=Depends(get_current_user)):
-    return {"user": user}
+def read_users_me():
+    # Auth removed — keep route but return anonymous/public info
+    return {"user": None}
 
 @app.get("/create_user", response_class=HTMLResponse)
-async def create_user_form(request: Request, user=Depends(require_permission("manage_users"))):
+async def create_user_form(request: Request):
+    # Form for creating users — accessible without permissions now
     return templates.TemplateResponse("create_user.html", {"request": request})
 
 @app.post("/create_user")
-async def create_user(email: str = Form(...), password: str = Form(...), user=Depends(require_permission("manage_users"))):
+async def create_user(email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
     try:
         hashed_password = get_password_hash(password)
@@ -103,18 +91,21 @@ async def create_user(email: str = Form(...), password: str = Form(...), user=De
 
 # ---------------- Accounts ----------------
 @app.post("/accounts/", response_model=AccountSchema)
-def create_account(account: AccountCreate, db: Session = Depends(get_db), user=Depends(require_permission("write_db"))):
+def create_account(account: AccountCreate, db: Session = Depends(get_db)):
+    # No permission checks — directly call CRUD
     return crud.create_account(db, account)
 
 @app.get("/balance")
-def get_balance(account_id: str, user=Depends(get_current_user)):
+def get_balance(account_id: str):
+    # No authentication required
     account = core.get_account_balance(account_id)
     if account is None:
         raise HTTPException(status_code=404, detail="Account not found")
     return {"account_id": account_id, "balance": account.balance}
 
 @app.post("/reset", status_code=200)
-def reset_state(user=Depends(require_permission("deploy_api"))):
+def reset_state():
+    # Open endpoint to reset state (no auth)
     core.reset_state()
     api_reset_counter.inc()
     return {"message": "API reset executed"}
@@ -127,7 +118,7 @@ class TransactionRequest(BaseModel):
     amount: float
 
 @app.post("/event", response_model=TransactionResponse)
-async def process_transaction(transaction: TransactionRequest, user=Depends(get_current_user)):
+async def process_transaction(transaction: TransactionRequest):
     transaction_processed_counter.inc()
     if transaction.type == "deposit":
         account = core.create_or_update_account(transaction.destination, transaction.amount)
