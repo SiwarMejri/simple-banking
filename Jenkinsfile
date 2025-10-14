@@ -34,59 +34,61 @@ pipeline {
             }
         }
 
-stage('Tests Unitaires') {
-    steps {
-        echo "🧪 Exécution des tests unitaires avec TestClient..."
-        script {
-            // Utiliser bash explicitement
-            def testResult = sh(
-                script: """
-                    #!/bin/bash
-                    . ${VENV_DIR}/bin/activate
-                    export DATABASE_URL="${DATABASE_URL}"
-                    export PYTHONPATH=$WORKSPACE/src/app
-                    pytest --maxfail=0 --disable-warnings --cov=src --cov-report=xml -v | tee pytest-output.log
-                """,
-                returnStatus: true
-            )
+        stage('Tests Unitaires') {
+            steps {
+                echo "🧪 Exécution des tests unitaires avec TestClient..."
+                script {
+                    def testResult = sh(
+                        script: """
+                            #!/bin/bash
+                            . ${VENV_DIR}/bin/activate
+                            export DATABASE_URL="${DATABASE_URL}"
+                            export PYTHONPATH=$WORKSPACE/src/app
+                            pytest --maxfail=0 --disable-warnings --cov=src --cov-report=xml:coverage.xml -v | tee pytest-output.log
+                        """,
+                        returnStatus: true
+                    )
 
-            if (testResult != 0) {
-                echo "⚠️ Certains tests ont échoué, voir la console et pytest-output.log"
-                currentBuild.result = "UNSTABLE"
-            } else {
-                echo "✅ Tous les tests unitaires ont réussi"
+                    if (testResult != 0) {
+                        echo "⚠️ Certains tests ont échoué, voir la console et pytest-output.log"
+                        currentBuild.result = "UNSTABLE"
+                    } else {
+                        echo "✅ Tous les tests unitaires ont réussi"
+                    }
+                }
+
+                archiveArtifacts artifacts: 'pytest-output.log', allowEmptyArchive: false
             }
         }
 
-        // Archive le log
-        archiveArtifacts artifacts: 'pytest-output.log', allowEmptyArchive: false
-    }
-}
-
-
-stage('Analyse SAST avec SonarQube') {
-    when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
-    steps {
-        echo "🔎 Analyse SAST avec SonarQube..."
-        withSonarQubeEnv('sonarqube') { // Nom exact configuré dans Jenkins
-            withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
-                script {
-                    // Récupération du chemin de l'installation Jenkins du scanner
-                    def scannerHome = tool 'sonar-scanner'
-                    sh """
-                        ${scannerHome}/bin/sonar-scanner \
-                          -Dsonar.projectKey=simple-banking \
-                          -Dsonar.sources=src \
-                          -Dsonar.python.version=3.10 \
-                          -Dsonar.python.coverage.reportPaths=coverage.xml \
-                          -Dsonar.host.url=http://192.168.240.139:9000 \
-                          -Dsonar.login=$SONAR_TOKEN
-                    """
+        stage('Analyse SAST avec SonarQube') {
+            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
+            steps {
+                echo "🔎 Analyse SAST avec SonarQube..."
+                withSonarQubeEnv('sonarqube') { // Nom exact configuré dans Jenkins
+                    script {
+                        def scannerHome = tool 'sonar-scanner'
+                        sh """
+                            ${scannerHome}/bin/sonar-scanner \
+                              -Dsonar.projectKey=simple-banking \
+                              -Dsonar.sources=src \
+                              -Dsonar.python.version=3.10 \
+                              -Dsonar.python.coverage.reportPaths=coverage.xml \
+                              -Dsonar.host.url=$SONAR_HOST_URL \
+                              -Dsonar.login=$SONAR_AUTH_TOKEN
+                        """
+                    }
                 }
             }
         }
-    }
-}
+
+        stage('Vérification Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
 
         stage('Build Docker') {
             steps {
@@ -147,4 +149,4 @@ stage('Analyse SAST avec SonarQube') {
         success { echo "✅ Pipeline réussi" }
         failure { echo "❌ Pipeline échoué" }
     }
-}  
+}
