@@ -35,32 +35,33 @@ pipeline {
             }
         }
 
-        stage('Tests Unitaires') {
-            steps {
-                echo "🧪 Exécution des tests unitaires avec TestClient..."
-                script {
-                    def testResult = sh(
-                        script: """
-                            #!/bin/bash
-                            . ${VENV_DIR}/bin/activate
-                            export DATABASE_URL="${DATABASE_URL}"
-                            export PYTHONPATH=$WORKSPACE/src/app
-                            pytest --maxfail=0 --disable-warnings --cov=src --cov-report=xml:coverage.xml -v | tee pytest-output.log
-                        """,
-                        returnStatus: true
-                    )
+stage('Tests Unitaires') {
+    steps {
+        echo "🧪 Exécution des tests unitaires avec TestClient..."
+        script {
+            def testResult = sh(
+                script: """
+                    #!/bin/bash
+                    . ${VENV_DIR}/bin/activate
+                    export DATABASE_URL="${DATABASE_URL}"
+                    export PYTHONPATH=$WORKSPACE/src/app
+                    pytest --disable-warnings --cov=src --cov-report=xml:coverage.xml -v | tee pytest-output.log
+                """,
+                returnStatus: true
+            )
 
-                    if (testResult != 0) {
-                        echo "⚠️ Certains tests ont échoué, voir la console et pytest-output.log"
-                        currentBuild.result = "UNSTABLE"
-                    } else {
-                        echo "✅ Tous les tests unitaires ont réussi"
-                    }
-                }
-
-                archiveArtifacts artifacts: 'pytest-output.log', allowEmptyArchive: false
+            if (testResult != 0) {
+                echo "⚠️ Certains tests ont échoué, voir la console et pytest-output.log"
+                currentBuild.result = "UNSTABLE"
+            } else {
+                echo "✅ Tous les tests unitaires ont réussi"
             }
         }
+
+        archiveArtifacts artifacts: 'pytest-output.log', allowEmptyArchive: false
+    }
+}
+
 
         stage('Analyse SAST avec SonarQube') {
             when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
