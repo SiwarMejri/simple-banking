@@ -1,11 +1,10 @@
-# src/app/crud.py
 from sqlalchemy.orm import Session
-from models.user import User  # ✅ corrigé
-from models.account import Account  # ✅ corrigé
-from models import schemas  # ✅ corrigé
+from app.models.user import User
+from app.models.account import Account
+from app.schemas import UserCreate, AccountCreate  # ✅ Import correct
 
 # --------- USER CRUD ---------
-def create_user(db: Session, user: schemas.UserCreate):
+def create_user(db: Session, user: UserCreate):
     fake_hashed_password = user.password + "notreallyhashed"
     db_user = User(
         name=user.name,
@@ -24,7 +23,7 @@ def get_user(db: Session, user_id: int):
 def get_account(db: Session, account_id: str):
     return db.query(Account).filter(Account.id == account_id).first()
 
-def create_account(db: Session, account: schemas.AccountCreate):
+def create_account(db: Session, account: AccountCreate):
     db_account = Account(
         id=account.id,
         user_id=account.user_id,
