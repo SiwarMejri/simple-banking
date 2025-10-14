@@ -3,9 +3,9 @@
 from pydantic import BaseModel
 from typing import Optional
 from sqlalchemy import Column, Integer, String
-from models.database import Base  # ✅ Import corrigé
+from models.database import Base  # Assure-toi que Base est bien défini dans database.py
 
-# --- Schéma Pydantic (utilisé pour FastAPI) ---
+# --- Schéma Pydantic (pour FastAPI) ---
 class TransactionSchema(BaseModel):
     type: str
     amount: int
@@ -13,15 +13,15 @@ class TransactionSchema(BaseModel):
     destination: Optional[str] = None
 
     class Config:
-        orm_mode = True  # ✅ Permet la compatibilité avec SQLAlchemy
+        orm_mode = True  # Permet la compatibilité avec SQLAlchemy
 
 # --- Modèle SQLAlchemy (pour la DB) ---
 class Transaction(Base):
     __tablename__ = "transactions"
-    __table_args__ = {"extend_existing": True}  # ✅ Corrige le conflit de table
+    __table_args__ = {"extend_existing": True}  # Evite les conflits si la table existe déjà
 
     id = Column(Integer, primary_key=True, index=True)
-    type = Column(String, nullable=False)
+    type = Column(String(length=50), nullable=False)  # Ajout d'une longueur pour String
     amount = Column(Integer, nullable=False)
-    origin = Column(String, nullable=True)
-    destination = Column(String, nullable=True)
+    origin = Column(String(length=100), nullable=True)
+    destination = Column(String(length=100), nullable=True)
