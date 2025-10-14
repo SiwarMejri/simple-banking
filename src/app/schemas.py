@@ -10,7 +10,6 @@ class Account(BaseModel):
         "from_attributes": True
     }
 
-
 # ----- Utilisateur -----
 class UserBase(BaseModel):
     name: str
@@ -27,12 +26,10 @@ class User(UserBase):
         "from_attributes": True
     }
 
-
 # ----- Compte Create (après User pour lier user_id) -----
 class AccountCreate(BaseModel):
     id: str
     user_id: int
-
 
 # ----- Transaction -----
 class TransactionCreate(BaseModel):
@@ -49,4 +46,3 @@ class TransactionResponse(BaseModel):
     model_config = {
         "from_attributes": True
     }
-
