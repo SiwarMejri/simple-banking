@@ -1,6 +1,5 @@
-# models/models.py
+# src/app/models/models.py
 
-from .user import User
-from .account import Account
-from .transaction import Transaction
-
+from models.user import User
+from models.account import Account
+from models.transaction import Transaction
