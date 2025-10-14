@@ -1,9 +1,9 @@
-# src/app/transaction_utils.py
+# src/app/models/transaction_utils.py
 
 from fastapi import Response
-from src.app.database import SessionLocal
-from .transaction import Transaction
 from contextlib import contextmanager
+from models.database import SessionLocal  # ✅ corrigé
+from models.transaction import Transaction  # ✅ corrigé
 
 @contextmanager
 def get_db():
@@ -14,10 +14,6 @@ def get_db():
         db.close()
 
 def process_deposit(transaction: dict, response: Response = None):
-    """
-    Traite un dépôt.
-    transaction: dict contenant 'destination' et 'amount'
-    """
     destination = transaction.get("destination")
     amount = transaction.get("amount")
 
@@ -45,10 +41,6 @@ def process_deposit(transaction: dict, response: Response = None):
     }
 
 def process_withdraw(transaction: dict, response: Response = None):
-    """
-    Traite un retrait.
-    transaction: dict contenant 'origin' et 'amount'
-    """
     origin = transaction.get("origin")
     amount = transaction.get("amount")
 
@@ -82,10 +74,6 @@ def process_withdraw(transaction: dict, response: Response = None):
     }
 
 def process_transfer(transaction: dict, response: Response = None):
-    """
-    Traite un transfert entre deux comptes.
-    transaction: dict contenant 'origin', 'destination', et 'amount'
-    """
     origin = transaction.get("origin")
     destination = transaction.get("destination")
     amount = transaction.get("amount")
@@ -97,7 +85,6 @@ def process_transfer(transaction: dict, response: Response = None):
         raise ValueError("Montant invalide")
 
     with get_db() as db:
-        # Vérifier le solde du compte d'origine
         previous_tx_origin = db.query(Transaction).filter_by(destination=origin).all()
         balance_origin = sum(tx.amount for tx in previous_tx_origin if tx.type == "deposit") \
                          - sum(tx.amount for tx in previous_tx_origin if tx.type == "withdraw")
@@ -108,7 +95,6 @@ def process_transfer(transaction: dict, response: Response = None):
                 return {"error": "Solde insuffisant"}
             raise ValueError("Solde insuffisant")
 
-        # Créer les transactions
         tx_origin = Transaction(type="withdraw", amount=amount, destination=origin)
         tx_dest = Transaction(type="deposit", amount=amount, destination=destination)
         db.add(tx_origin)
@@ -117,7 +103,6 @@ def process_transfer(transaction: dict, response: Response = None):
         db.refresh(tx_origin)
         db.refresh(tx_dest)
 
-        # Calculer le nouveau solde pour chaque compte
         previous_tx_dest = db.query(Transaction).filter_by(destination=destination).all()
         new_balance_dest = sum(tx.amount for tx in previous_tx_dest if tx.type == "deposit") \
                            - sum(tx.amount for tx in previous_tx_dest if tx.type == "withdraw")
