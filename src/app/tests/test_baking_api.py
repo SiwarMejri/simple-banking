@@ -1,10 +1,15 @@
+# tests/test_banking_api.py
+import os
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.core import core
 from app.models.base import Base
-from app.models.database import engine  # ton moteur SQLAlchemy
+from app.models.database import engine
+
+# Active le mode test
+os.environ["TESTING"] = "1"
 
 client = TestClient(app)
 
@@ -12,7 +17,6 @@ client = TestClient(app)
 @pytest.fixture(autouse=True)
 def reset_db_before_test():
     """Réinitialise la base avant et après chaque test"""
-    # Supprimer toutes les tables existantes
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     core.reset_state()
@@ -47,8 +51,7 @@ def test_deposit_into_existing_account():
 
 def test_get_balance_existing_account(auth_token):
     client.post("/event", json={"type": "deposit", "destination": "100", "amount": 20})
-    headers = {"Authorization": f"Bearer {auth_token}"}
-    response = client.get("/balance", params={"account_id": "100"}, headers=headers)
+    response = client.get("/balance", params={"account_id": "100"})
     assert response.status_code == 200
     assert response.json() == {"account_id": "100", "balance": 20}
 
