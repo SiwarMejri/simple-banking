@@ -70,10 +70,11 @@ pipeline {
                         sh """
                             ${scannerHome}/bin/sonar-scanner \
                               -Dsonar.projectKey=simple-banking \
-                              -Dsonar.sources=src \
+                              -Dsonar.sources=src/app \
                               -Dsonar.python.version=3.10 \
                               -Dsonar.python.coverage.reportPaths=coverage.xml \
-                              -Dsonar.tests=src/app/tests \
+                              -Dsonar.tests=src/app/tests 
+                              -Dsonar.exclusions=src/app/tests/**
                               -Dsonar.host.url=$SONAR_HOST_URL \
                               -Dsonar.token=$SONAR_TOKEN
                         """
