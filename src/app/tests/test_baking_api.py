@@ -7,10 +7,17 @@ from app.main import app
 from app.core import core
 from app.models.base import Base
 from app.models.database import engine
+from app.dependencies import get_current_user  # <-- import de la dépendance
 
-# Active le mode test
-os.environ["TESTING"] = "1"
+# ------------------ Mock Auth ------------------
+def fake_user():
+    """Mock qui remplace get_current_user pour les tests"""
+    return {"username": "test_user"}
 
+# Applique le mock à tous les tests
+app.dependency_overrides[get_current_user] = fake_user
+
+# ------------------ TestClient ------------------
 client = TestClient(app)
 
 # ------------------ Fixtures ------------------
@@ -23,11 +30,6 @@ def reset_db_before_test():
     yield
     Base.metadata.drop_all(bind=engine)
     core.reset_state()
-
-@pytest.fixture
-def auth_token():
-    """Token factice pour bypass JWT en mode test"""
-    return "any-token"
 
 # ------------------ Tests ------------------
 def test_create_account_with_initial_balance():
@@ -49,7 +51,7 @@ def test_deposit_into_existing_account():
         "type": "deposit"
     }
 
-def test_get_balance_existing_account(auth_token):
+def test_get_balance_existing_account():
     client.post("/event", json={"type": "deposit", "destination": "100", "amount": 20})
     response = client.get("/balance", params={"account_id": "100"})
     assert response.status_code == 200
@@ -75,3 +77,8 @@ def test_transfer_from_existing_account():
         "destination": {"id": "200", "balance": 30},
         "type": "transfer"
     }
+
+# ------------------ Nettoyage (optionnel) ------------------
+def teardown_module(module):
+    """Supprime le mock après tous les tests"""
+    app.dependency_overrides = {}
