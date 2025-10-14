@@ -1,11 +1,8 @@
-# src/app/tests/test_baking_api.py
-
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.core import core  # ✅ importer core depuis app.core
-# On utilise core.reset_state() (et non directement reset_state)
 
 client = TestClient(app)
 
