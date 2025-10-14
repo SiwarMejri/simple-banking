@@ -8,20 +8,25 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 from app.main import app
-
-# ------------------ Client TestClient global ------------------
-@pytest.fixture(scope="session")
-def client():
-    return TestClient(app)
-
-# ------------------ Fixture pour reset DB avant chaque test ------------------
 from app.models.base import Base
 from app.models.database import engine
 from app.core import core
 
+# ------------------ Client TestClient global ------------------
+@pytest.fixture(scope="session")
+def client():
+    """Client de test FastAPI réutilisable pour toute la session"""
+    return TestClient(app)
+
+# ------------------ Fixture pour réinitialiser la base avant chaque test ------------------
 @pytest.fixture(autouse=True)
-def reset_db_before_test():
-    """Réinitialise la base avant et après chaque test"""
+def reset_db():
+    """
+    Réinitialise complètement la base avant chaque test :
+    - Supprime toutes les tables
+    - Recrée le schéma
+    - Réinitialise l’état mémoire du module core
+    """
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     core.reset_state()
