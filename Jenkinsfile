@@ -5,11 +5,11 @@ pipeline {
         VENV_DIR      = "${WORKSPACE}/venv"
         PYTHONPATH    = "${WORKSPACE}/src"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
-        ENVIRONMENT   = "test" // test = SQLite
+        ENVIRONMENT   = "test"
         DATABASE_URL  = "sqlite:///./test_banking.db"
         IMAGE_NAME    = "siwarmejri/simple-banking"
         IMAGE_TAG     = "latest"
-        SONAR_TOKEN = credentials('sonar-token') // ID exact du secret text
+        SONAR_TOKEN   = credentials('sonar-token') // ID exact du secret text
     }
 
     stages {
@@ -25,49 +25,46 @@ pipeline {
             steps {
                 echo "📦 Création de la virtualenv et installation des dépendances..."
                 sh """
+                    set -e
                     python3 -m venv ${VENV_DIR}
                     . ${VENV_DIR}/bin/activate
-                    echo "🧹 Nettoyage du cache pip"
-                    pip cache purge || true
                     pip install --upgrade pip
                     pip install -r requirements.txt
                 """
             }
         }
 
-stage('Tests Unitaires') {
-    steps {
-        echo "🧪 Exécution des tests unitaires avec TestClient..."
-        script {
-            def testResult = sh(
-                script: """
-                    #!/bin/bash
-                    . ${VENV_DIR}/bin/activate
-                    export DATABASE_URL="${DATABASE_URL}"
-                    export PYTHONPATH=$WORKSPACE/src/app
-                    pytest --disable-warnings --cov=src --cov-report=xml:coverage.xml -v | tee pytest-output.log
-                """,
-                returnStatus: true
-            )
+        stage('Tests Unitaires') {
+            steps {
+                echo "🧪 Exécution des tests unitaires avec TestClient..."
+                script {
+                    def testResult = sh(
+                        script: """
+                            set -e
+                            . ${VENV_DIR}/bin/activate
+                            export DATABASE_URL="${DATABASE_URL}"
+                            export PYTHONPATH=$WORKSPACE/src/app
+                            pytest --disable-warnings --cov=src --cov-report=xml:coverage.xml -v | tee pytest-output.log
+                        """,
+                        returnStatus: true
+                    )
 
-            if (testResult != 0) {
-                echo "⚠️ Certains tests ont échoué, voir la console et pytest-output.log"
-                currentBuild.result = "UNSTABLE"
-            } else {
-                echo "✅ Tous les tests unitaires ont réussi"
+                    if (testResult != 0) {
+                        echo "⚠️ Certains tests ont échoué, voir la console et pytest-output.log"
+                        error("❌ Build échoué à cause des tests unitaires")
+                    } else {
+                        echo "✅ Tous les tests unitaires ont réussi"
+                    }
+                }
+
+                archiveArtifacts artifacts: 'pytest-output.log', allowEmptyArchive: false
             }
         }
 
-        archiveArtifacts artifacts: 'pytest-output.log', allowEmptyArchive: false
-    }
-}
-
-
         stage('Analyse SAST avec SonarQube') {
-            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "🔎 Analyse SAST avec SonarQube..."
-                withSonarQubeEnv('sonarqube') { // Nom exact configuré dans Jenkins
+                withSonarQubeEnv('sonarqube') {
                     script {
                         def scannerHome = tool 'sonar-scanner'
                         sh """
@@ -76,8 +73,9 @@ stage('Tests Unitaires') {
                               -Dsonar.sources=src \
                               -Dsonar.python.version=3.10 \
                               -Dsonar.python.coverage.reportPaths=coverage.xml \
+                              -Dsonar.tests=src/app/tests \
                               -Dsonar.host.url=$SONAR_HOST_URL \
-                              -Dsonar.login=$SONAR_TOKEN
+                              -Dsonar.token=$SONAR_TOKEN
                         """
                     }
                 }
@@ -112,7 +110,6 @@ stage('Tests Unitaires') {
         }
 
         stage('Generate PDF, Email & Push Docker') {
-            when { expression { currentBuild.result == null || currentBuild.result == 'SUCCESS' } }
             steps {
                 echo "📄 Génération du rapport PDF + envoi email + push Docker"
                 sh """
