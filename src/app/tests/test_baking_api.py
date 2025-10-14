@@ -1,4 +1,3 @@
-# src/app/tests/test_api.py
 import os
 import pytest
 from starlette.testclient import TestClient
@@ -11,6 +10,7 @@ from src.app.core import core
 def reset_db():
     os.environ["TESTING"] = "1"
     try:
+        # Reset complet de la DB et de l'état core
         Base.metadata.drop_all(bind=engine)
         Base.metadata.create_all(bind=engine)
         core.reset_state()
@@ -23,7 +23,10 @@ def reset_db():
 # ---------------- Fixture client ----------------
 @pytest.fixture
 def client():
-    return TestClient(app)
+    # Reset API state avant chaque test pour être sûr
+    client_instance = TestClient(app)
+    client_instance.post("/reset")
+    return client_instance
 
 # ---------------- Tests ----------------
 def test_create_account_with_initial_balance(client):
@@ -36,7 +39,7 @@ def test_create_account_with_initial_balance(client):
     }
 
 def test_get_balance_existing_account(client):
-    # Création d'un dépôt pour avoir un solde
+    # Création d'un dépôt pour avoir un solde propre
     client.post("/event", json={"type": "deposit", "destination": "100", "amount": 20})
     response = client.get("/balance", params={"account_id": "100"})
     assert response.status_code == 200
