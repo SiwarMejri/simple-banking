@@ -1,11 +1,10 @@
 # src/app/main.py
 
 # ---------------- Tracing ----------------
-from .tracer_setup import tracer  # ⚠️ Importer en premier
+from tracer_setup import tracer  # ✅ corrigé
 
-# ---------------- FastAPI / Autres imports ----------------
-from fastapi import FastAPI, Request, status, Response, HTTPException, Form, Depends, Header, Body
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, OAuth2AuthorizationCodeBearer
+from fastapi import FastAPI, Request, status, Response, HTTPException, Form, Depends, Header
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -17,19 +16,18 @@ from prometheus_client import Counter
 from prometheus_fastapi_instrumentator import Instrumentator
 import os
 import hvac
-from jwt import PyJWTError, decode as jwt_decode
+from jwt import decode as jwt_decode
 from jwt import PyJWKClient
 from pydantic import BaseModel
 
-# ---------------- Imports internes ----------------
-from .schemas import TransactionResponse, AccountCreate, Account as AccountSchema
-from .core import core
-from .database import Base, engine, SessionLocal
-from . import crud
-from .models.user import User
-from .models.account import Account
-from .dependencies import get_user_dep  # ✅ nouvelle dépendance
-from .models.transaction_utils import process_deposit, process_withdraw, process_transfer, Transaction
+from schemas import TransactionResponse, AccountCreate, Account as AccountSchema
+from core import core
+from database import Base, engine, SessionLocal
+import crud
+from models.user import User
+from models.account import Account
+from dependencies import get_user_dep
+from models.transaction_utils import process_deposit, process_withdraw, process_transfer
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO,
