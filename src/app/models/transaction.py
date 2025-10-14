@@ -1,5 +1,7 @@
+# src/app/models/transaction.py
+
 from sqlalchemy import Column, Integer, String
-from ..database import Base
+from models.database import Base  # ✅ corrigé
 
 class Transaction(Base):
     __tablename__ = "transactions"
