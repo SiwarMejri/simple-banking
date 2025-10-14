@@ -27,9 +27,13 @@ def reset_db():
     - Recrée le schéma
     - Réinitialise l’état mémoire du module core
     """
+    # Avant chaque test
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     core.reset_state()
-    yield
+
+    yield  # Exécution du test
+
+    # Après chaque test
     Base.metadata.drop_all(bind=engine)
     core.reset_state()
