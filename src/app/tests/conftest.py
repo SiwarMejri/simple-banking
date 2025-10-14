@@ -8,13 +8,6 @@ from fastapi.testclient import TestClient
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 from app.main import app
-from app.dependencies import get_current_user
-
-# ------------------ Mock global pour tous les tests ------------------
-def fake_user():
-    return {"username": "test_user"}
-
-app.dependency_overrides[get_current_user] = fake_user
 
 # ------------------ Client TestClient global ------------------
 @pytest.fixture(scope="session")
