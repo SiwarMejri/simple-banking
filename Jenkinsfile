@@ -44,7 +44,7 @@ stage('Tests Unitaires') {
                     #!/bin/bash
                     . ${VENV_DIR}/bin/activate
                     export DATABASE_URL="${DATABASE_URL}"
-                    export PYTHONPATH=$WORKSPACE/src
+                    export PYTHONPATH=$WORKSPACE/src/app
                     pytest --maxfail=0 --disable-warnings --cov=src --cov-report=xml -v | tee pytest-output.log
                 """,
                 returnStatus: true
