@@ -28,7 +28,7 @@ from models.user import User
 from models.account import Account
 from dependencies import get_user_dep
 from models.transaction_utils import process_deposit, process_withdraw, process_transfer
-from core.auth import get_current_user
+from auth import get_current_user
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO,
