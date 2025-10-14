@@ -16,6 +16,16 @@ def reset_db():
     Base.metadata.drop_all(bind=engine)
     os.environ.pop("TESTING", None)
 
+@pytest.fixture(autouse=True)
+def mock_auth(monkeypatch):
+    """Mock get_current_user pour bypass authentification."""
+    from src.app.main import get_current_user
+
+    monkeypatch.setattr(
+        "src.app.main.get_current_user",
+        lambda: {"user_id": "test_user", "preferred_username": "test_user", "realm_access": {"roles": ["admin"]}}
+    )
+
 @pytest.fixture
 def client():
     """Client TestClient pour interagir avec l'API FastAPI."""
@@ -67,3 +77,17 @@ def test_transfer_from_existing_account(client):
         "destination": {"id": "200", "balance": 30},
         "type": "transfer"
     }
+
+def test_reset_api_state(client):
+    response = client.post("/reset")
+    assert response.status_code == 200
+    assert response.json() == {"message": "API reset executed"}
+
+def test_keycloak_secret(client):
+    response = client.get("/keycloak-secret")
+    # Pour TESTING, Keycloak secret peut être None
+    if response.status_code == 200:
+        data = response.json()
+        assert "keycloak_client_secret" in data
+    else:
+        assert response.status_code == 500
