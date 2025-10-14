@@ -3,16 +3,18 @@ import pytest
 from starlette.testclient import TestClient
 from src.app.main import app
 from src.app.database import Base, engine
+import os
 
 # ------------------ Fixtures ------------------
-
 @pytest.fixture(autouse=True)
 def reset_db():
     """Reset la DB avant chaque test pour éviter l'accumulation."""
+    os.environ["TESTING"] = "1"  # bypass auth
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+    os.environ.pop("TESTING", None)
 
 @pytest.fixture
 def client():
@@ -20,7 +22,6 @@ def client():
     return TestClient(app)
 
 # ------------------ Tests ------------------
-
 def test_create_account_with_initial_balance(client):
     response = client.post("/event", json={"type": "deposit", "destination": "100", "amount": 10})
     assert response.status_code == 200
