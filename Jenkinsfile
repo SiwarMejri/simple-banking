@@ -75,7 +75,7 @@ pipeline {
                               -Dsonar.python.version=3.10 \
                               -Dsonar.python.coverage.reportPaths=coverage.xml \
                               -Dsonar.host.url=$SONAR_HOST_URL \
-                              -Dsonar.login=$SONAR_AUTH_TOKEN
+                              -Dsonar.login=$SONAR_TOKEN
                         """
                     }
                 }
