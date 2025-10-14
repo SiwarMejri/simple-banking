@@ -1,58 +1,26 @@
-# src/app/main.py
-
-# ---------------- Tracing ----------------
-from tracer_setup import tracer  # ✅ corrigé
-
-from fastapi import FastAPI, Request, status, Response, HTTPException, Form, Depends, Header
-from fastapi.security import HTTPBearer
-from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI, Request, Response, HTTPException, Depends, Form, Header
 from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-import logging
 from passlib.context import CryptContext
-from influxdb_client import InfluxDBClient, Point
 from prometheus_client import Counter, REGISTRY
 from prometheus_fastapi_instrumentator import Instrumentator
-import os
-import hvac
-from jwt import decode as jwt_decode
-from jwt import PyJWKClient
 from pydantic import BaseModel
+import logging
+import os
 
-from schemas import TransactionResponse, AccountCreate, Account as AccountSchema
-from core import core
 from database import Base, engine, SessionLocal
+from core import core
 import crud
 from models.user import User
 from models.account import Account
-from dependencies import get_user_dep
-from models.transaction_utils import process_deposit, process_withdraw, process_transfer
-from auth import get_current_user
+from schemas import TransactionResponse, AccountCreate, Account as AccountSchema
+from dependencies import get_current_user
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("fastapi-app")
-
-# ---------------- Prometheus counters (uniques) ----------------
-def get_or_create_counter(name: str, description: str):
-    if name in REGISTRY._names_to_collectors:
-        return REGISTRY._names_to_collectors[name]
-    return Counter(name, description)
-
-user_created_counter = get_or_create_counter("user_created_total", "Nombre total d'utilisateurs créés")
-api_reset_counter = get_or_create_counter("api_reset_total", "Nombre de resets de l'API")
-transaction_processed_counter = get_or_create_counter("transaction_processed_total", "Nombre de transactions traitées")
-
-# ---------------- InfluxDB ----------------
-influx_client = InfluxDBClient(url="http://localhost:8086", token="mytoken", org="monitoring")
-write_api = influx_client.write_api()
-
-def send_metric(host: str, metric_name: str, value: float):
-    logger.info(f"Envoi métrique vers InfluxDB: host={host}, metric={metric_name}, value={value}")
-    point = Point(metric_name).tag("host", host).field("value", value)
-    write_api.write(bucket="metrics", org="monitoring", record=point)
 
 # ---------------- FastAPI ----------------
 app = FastAPI()
@@ -69,41 +37,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-# ---------------- Vault ----------------
-VAULT_ADDR = os.environ.get("VAULT_ADDR", "http://192.168.240.143:8200")
-VAULT_ROLE_ID = os.environ.get("VAULT_ROLE_ID")
-VAULT_SECRET_ID = os.environ.get("VAULT_SECRET_ID")
-vault_client = hvac.Client(url=VAULT_ADDR)
-KEYCLOAK_CLIENT_SECRET = None
-
-if VAULT_ROLE_ID and VAULT_SECRET_ID:
-    try:
-        auth_response = vault_client.auth.approle.login(
-            role_id=VAULT_ROLE_ID,
-            secret_id=VAULT_SECRET_ID
-        )
-        vault_client.token = auth_response['auth']['client_token']
-        logger.info("Vault AppRole authentication successful ✅")
-    except Exception as e:
-        logger.error(f"Erreur Vault AppRole: {e}")
-        vault_client = None
-else:
-    logger.warning("VAULT_ROLE_ID ou VAULT_SECRET_ID non définis, Vault non authentifié ❌")
-    vault_client = None
-
-def get_keycloak_secret():
-    if vault_client is None:
-        logger.warning("Vault non disponible, retour du secret Keycloak par défaut ou None")
-        return None
-    try:
-        secret = vault_client.secrets.kv.v2.read_secret_version(path='keycloak')
-        return secret['data']['data']['api-rest-client-secret']
-    except Exception as e:
-        logger.error(f"Erreur récupération secret Keycloak depuis Vault: {e}")
-        return None
-
-KEYCLOAK_CLIENT_SECRET = get_keycloak_secret()
 
 # ---------------- Roles ----------------
 ROLES_PERMISSIONS = {
@@ -122,52 +55,27 @@ def require_permission(permission: str):
     return checker
 
 # ---------------- Prometheus ----------------
+def get_or_create_counter(name: str, description: str):
+    if name in REGISTRY._names_to_collectors:
+        return REGISTRY._names_to_collectors[name]
+    return Counter(name, description)
+
+user_created_counter = get_or_create_counter("user_created_total", "Nombre total d'utilisateurs créés")
+api_reset_counter = get_or_create_counter("api_reset_total", "Nombre de resets de l'API")
+transaction_processed_counter = get_or_create_counter("transaction_processed_total", "Nombre de transactions traitées")
+
 instrumentator = Instrumentator()
 instrumentator.instrument(app).expose(app)
-
-# ---------------- Startup ----------------
-@app.on_event("startup")
-async def startup_event():
-    with tracer.start_as_current_span("startup_span"):
-        logger.info("FastAPI startup span créé ✅")
-
-# ---------------- Swagger sécurisé ----------------
-@app.get("/docs", include_in_schema=False)
-def custom_swagger_ui_html():
-    from fastapi.openapi.utils import get_openapi
-    return get_swagger_ui_html(
-        openapi_url="/openapi-roles.json",
-        title="Banking API Docs",
-        oauth2_redirect_url="/docs/oauth2-redirect",
-        init_oauth={
-            "clientId": "api-rest-client",
-            "clientSecret": KEYCLOAK_CLIENT_SECRET,
-            "usePkceWithAuthorizationCodeGrant": True,
-            "scopes": "openid profile email",
-        },
-    )
-
-@app.get("/openapi-roles.json", include_in_schema=False)
-def openapi_roles(authorization: str = Header(None)):
-    from fastapi.openapi.utils import get_openapi
-    if os.getenv("TESTING") == "1":
-        return JSONResponse(get_openapi(title="Banking API", version="1.0.0", routes=app.routes))
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    # Simplification pour tests
-    return JSONResponse(get_openapi(title="Banking API", version="1.0.0", routes=app.routes))
 
 # ---------------- Endpoints ----------------
 @app.get("/")
 async def root():
-    with tracer.start_as_current_span("root_endpoint"):
-        return {"message": "Hello, Simple Banking API!"}
+    return {"message": "Hello, Simple Banking API!"}
 
 @app.get("/protected")
 async def protected(user=Depends(get_current_user)):
     return {"message": f"Hello {user.get('preferred_username','test-user')}, vous êtes authentifié"}
 
-# ---------------- User management ----------------
 @app.get("/users/me")
 def read_users_me(user=Depends(get_current_user)):
     return {"user": user}
@@ -185,7 +93,6 @@ async def create_user(email: str = Form(...), password: str = Form(...), user=De
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
-        send_metric("api_server", "user_created", 1)
         user_created_counter.inc()
         return {"message": "Utilisateur créé ✅", "user_id": new_user.id, "email": new_user.email}
     except Exception as e:
@@ -197,8 +104,7 @@ async def create_user(email: str = Form(...), password: str = Form(...), user=De
 # ---------------- Accounts ----------------
 @app.post("/accounts/", response_model=AccountSchema)
 def create_account(account: AccountCreate, db: Session = Depends(get_db), user=Depends(require_permission("write_db"))):
-    result = crud.create_account(db, account)
-    return result
+    return crud.create_account(db, account)
 
 @app.get("/balance")
 def get_balance(account_id: str, user=Depends(get_current_user)):
@@ -207,22 +113,21 @@ def get_balance(account_id: str, user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="Account not found")
     return {"account_id": account_id, "balance": account.balance}
 
-@app.post("/reset", status_code=status.HTTP_200_OK)
+@app.post("/reset", status_code=200)
 def reset_state(user=Depends(require_permission("deploy_api"))):
     core.reset_state()
-    send_metric("api_server", "api_reset", 1)
     api_reset_counter.inc()
     return {"message": "API reset executed"}
 
 # ---------------- Transactions ----------------
 class TransactionRequest(BaseModel):
-    type: str  # "deposit", "withdraw", "transfer"
+    type: str
     origin: str | None = None
     destination: str | None = None
     amount: float
 
 @app.post("/event", response_model=TransactionResponse)
-async def process_transaction(transaction: TransactionRequest, response: Response, user=Depends(get_current_user)):
+async def process_transaction(transaction: TransactionRequest, user=Depends(get_current_user)):
     transaction_processed_counter.inc()
     if transaction.type == "deposit":
         account = core.create_or_update_account(transaction.destination, transaction.amount)
@@ -239,13 +144,6 @@ async def process_transaction(transaction: TransactionRequest, response: Respons
         )
     else:
         raise HTTPException(status_code=400, detail="Invalid transaction type")
-
-# ---------------- Keycloak secret ----------------
-@app.get("/keycloak-secret")
-def keycloak_secret(user=Depends(require_permission("manage_users"))):
-    if KEYCLOAK_CLIENT_SECRET:
-        return {"keycloak_client_secret": KEYCLOAK_CLIENT_SECRET}
-    raise HTTPException(status_code=500, detail="Secret Keycloak non disponible depuis Vault")
 
 # ---------------- GitHub Webhook ----------------
 @app.post("/github-webhook/")
