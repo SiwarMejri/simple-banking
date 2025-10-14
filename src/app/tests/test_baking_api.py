@@ -2,16 +2,22 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.core import core  # ✅ importer core depuis app.core
+from app.core import core
+from app.models.base import Base
+from app.models.database import engine  # ton moteur SQLAlchemy
 
 client = TestClient(app)
 
 # ------------------ Fixtures ------------------
 @pytest.fixture(autouse=True)
 def reset_db_before_test():
-    """Réinitialise l'état avant et après chaque test"""
+    """Réinitialise la base avant et après chaque test"""
+    # Supprimer toutes les tables existantes
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
     core.reset_state()
     yield
+    Base.metadata.drop_all(bind=engine)
     core.reset_state()
 
 @pytest.fixture
