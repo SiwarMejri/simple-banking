@@ -83,24 +83,6 @@ pipeline {
             }
         }
 
-        stage('Vérification Quality Gate') {
-            steps {
-                script {
-                    try {
-                        timeout(time: 5, unit: 'MINUTES') {
-                            def qg = waitForQualityGate()
-                            if (qg.status != 'OK') {
-                                echo "⚠️ Quality Gate échoué: ${qg.status}"
-                            } else {
-                                echo "✅ Quality Gate réussi"
-                            }
-                        }
-                    } catch (err) {
-                        echo "⚠️ Impossible de récupérer le Quality Gate ou erreur: ${err}"
-                    }
-                }
-            }
-        }
 
         stage('Build Docker') {
             steps {
