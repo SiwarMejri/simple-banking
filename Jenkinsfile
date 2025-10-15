@@ -50,13 +50,12 @@ pipeline {
                     )
 
                     if (testResult != 0) {
-                        echo "⚠️ Certains tests ont échoué, voir la console et pytest-output.log"
+                        echo "⚠️ Certains tests ont échoué, voir pytest-output.log"
                         error("❌ Build échoué à cause des tests unitaires")
                     } else {
                         echo "✅ Tous les tests unitaires ont réussi"
                     }
                 }
-
                 archiveArtifacts artifacts: 'pytest-output.log', allowEmptyArchive: false
             }
         }
@@ -93,15 +92,27 @@ pipeline {
         stage('Scan de vulnérabilités avec Trivy') {
             steps {
                 echo "🛡️ Scan des vulnérabilités avec Trivy..."
-                sh """
-                    # Scan FS
-                    trivy fs --exit-code 1 --severity CRITICAL,HIGH --format table --output trivy-report.txt . || true
-                    trivy fs --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
+                script {
+                    // Scan FS
+                    def fsScan = sh(
+                        script: """
+                            trivy fs --exit-code 1 --severity CRITICAL,HIGH --format table --output trivy-report.txt . || true
+                            trivy fs --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
+                        """,
+                        returnStatus: true
+                    )
 
-                    # Scan image Docker
-                    trivy image --exit-code 1 --severity CRITICAL,HIGH --format table --output trivy-image-report.txt ${IMAGE_NAME}:${IMAGE_TAG} || true
-                    trivy image --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG} || true
-                """
+                    // Scan image Docker
+                    def imageScan = sh(
+                        script: """
+                            trivy image --exit-code 1 --severity CRITICAL,HIGH --format table --output trivy-image-report.txt ${IMAGE_NAME}:${IMAGE_TAG} || true
+                            trivy image --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG} || true
+                        """,
+                        returnStatus: true
+                    )
+
+                    echo "✅ Scan Trivy terminé (FS code: ${fsScan}, Image code: ${imageScan})"
+                }
                 archiveArtifacts artifacts: 'trivy-report.json,trivy-image-report.json,trivy-report.txt,trivy-image-report.txt', allowEmptyArchive: true
             }
         }
@@ -143,6 +154,12 @@ pipeline {
                         docker logout
                     '''
                 }
+            }
+        }
+
+        stage('Déploiement (optionnel)') {
+            steps {
+                echo "🚀 Étape de déploiement à compléter selon ton environnement (Docker Compose, Kubernetes, VM...)"
             }
         }
     }
