@@ -9,8 +9,8 @@ from pydantic import BaseModel
 import logging
 import os
 
-from database import Base, engine, SessionLocal
-from core import core
+from .database import Base, engine, SessionLocal
+from .core import core
 import crud
 from models.user import User
 from models.account import Account
