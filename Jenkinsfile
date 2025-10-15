@@ -9,7 +9,7 @@ pipeline {
         DATABASE_URL  = "sqlite:///./test_banking.db"
         IMAGE_NAME    = "siwarmejri/simple-banking"
         IMAGE_TAG     = "latest"
-        SONAR_TOKEN   = credentials('sonar-token') // ID exact du secret text
+        SONAR_TOKEN   = credentials('sonar-token')
     }
 
     stages {
@@ -91,14 +91,12 @@ pipeline {
                             def qg = waitForQualityGate()
                             if (qg.status != 'OK') {
                                 echo "⚠️ Quality Gate échoué: ${qg.status}"
-                                // On continue malgré l'échec
                             } else {
                                 echo "✅ Quality Gate réussi"
                             }
                         }
                     } catch (err) {
                         echo "⚠️ Impossible de récupérer le Quality Gate ou erreur: ${err}"
-                        // On continue quand même
                     }
                 }
             }
@@ -115,8 +113,8 @@ pipeline {
             steps {
                 echo "🛡️ Scan des vulnérabilités avec Trivy..."
                 sh """
-                    trivy fs --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
-                    trivy image --severity CRITICAL,HIGH --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG} || true
+                    trivy fs --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-report.json .
+                    trivy image --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG}
                 """
                 archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
                 archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
@@ -136,19 +134,26 @@ pipeline {
                 """
                 archiveArtifacts artifacts: 'full_report.pdf', allowEmptyArchive: false
 
-                emailext(
-                    subject: "📊 Rapport CI/CD - SonarQube + Trivy",
-                    body: "Bonjour,\n\nLe rapport PDF consolidé du projet simple-banking est ci-joint.\n\nCordialement.",
-                    to: "siwarmejri727@gmail.com",
-                    attachmentsPattern: "**/full_report.pdf"
-                )
+                script {
+                    if (fileExists('full_report.pdf')) {
+                        emailext(
+                            subject: "📊 Rapport CI/CD - SonarQube + Trivy",
+                            body: "Bonjour,\n\nLe rapport PDF consolidé du projet simple-banking est ci-joint.\n\nCordialement.",
+                            to: "siwarmejri727@gmail.com",
+                            attachmentsPattern: "**/full_report.pdf",
+                            mimeType: 'application/pdf'
+                        )
+                    } else {
+                        echo "⚠️ PDF non généré, email non envoyé."
+                    }
+                }
 
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
                                                  usernameVariable: 'DOCKER_USER',
                                                  passwordVariable: 'DOCKER_PASS')]) {
                     sh '''
                         echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        docker tag siwarmejri/simple-banking:latest $DOCKER_USER/simple-banking:latest
+                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} $DOCKER_USER/simple-banking:latest
                         docker push $DOCKER_USER/simple-banking:latest
                         docker logout
                     '''
