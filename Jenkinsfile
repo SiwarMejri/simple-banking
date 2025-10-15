@@ -9,6 +9,7 @@ pipeline {
         DATABASE_URL  = "sqlite:///./test_banking.db"
         IMAGE_NAME    = "siwarmejri/simple-banking"
         IMAGE_TAG     = "latest"
+        SONAR_TOKEN = credentials('sonar-token')
     }
 
     stages {
