@@ -93,25 +93,19 @@ pipeline {
             steps {
                 echo "🛡️ Scan des vulnérabilités avec Trivy..."
                 script {
-                    // Scan FS
-                    def fsScan = sh(
-                        script: """
-                            trivy fs --exit-code 1 --severity CRITICAL,HIGH --format table --output trivy-report.txt . || true
-                            trivy fs --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
-                        """,
-                        returnStatus: true
-                    )
+                    // Scan FS - toutes vulnérabilités, jamais bloquant
+                    sh """
+                        trivy fs --exit-code 0 --format table --output trivy-report.txt .
+                        trivy fs --exit-code 0 --format json --output trivy-report.json .
+                    """
 
-                    // Scan image Docker
-                    def imageScan = sh(
-                        script: """
-                            trivy image --exit-code 1 --severity CRITICAL,HIGH --format table --output trivy-image-report.txt ${IMAGE_NAME}:${IMAGE_TAG} || true
-                            trivy image --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG} || true
-                        """,
-                        returnStatus: true
-                    )
+                    // Scan image Docker - toutes vulnérabilités, jamais bloquant
+                    sh """
+                        trivy image --exit-code 0 --format table --output trivy-image-report.txt ${IMAGE_NAME}:${IMAGE_TAG}
+                        trivy image --exit-code 0 --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG}
+                    """
 
-                    echo "✅ Scan Trivy terminé (FS code: ${fsScan}, Image code: ${imageScan})"
+                    echo "✅ Scan Trivy terminé (FS + Image)"
                 }
                 archiveArtifacts artifacts: 'trivy-report.json,trivy-image-report.json,trivy-report.txt,trivy-image-report.txt', allowEmptyArchive: true
             }
