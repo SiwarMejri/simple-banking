@@ -22,7 +22,7 @@ def fetch_sonarqube_metrics(project_key, sonar_url='http://192.168.240.139:9000'
     api_url = f"{sonar_url}/api/measures/component?component={project_key}&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density,ncloc"
     headers = {}
     if token:
-        token_bytes = f"{token}:".encode('utf-8')
+        token_bytes = f"{token}:".encode('utf-8')  # username vide
         token_b64 = base64.b64encode(token_bytes).decode('utf-8')
         headers['Authorization'] = f"Basic {token_b64}"
     try:
@@ -39,20 +39,16 @@ def fetch_sonarqube_metrics(project_key, sonar_url='http://192.168.240.139:9000'
 def format_trivy_results(trivy_data):
     """Formate les résultats Trivy pour affichage dans un tableau PDF."""
     rows = [["CVE", "Package", "Severity", "Installed Version", "Fixed Version"]]
-    severity_count = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
     for result in trivy_data.get('Results', []):
         for v in result.get('Vulnerabilities', []):
-            sev = v.get('Severity', 'UNKNOWN').upper()
-            if sev in severity_count:
-                severity_count[sev] += 1
             rows.append([
                 v.get('VulnerabilityID', ''),
                 v.get('PkgName', ''),
-                sev,
+                v.get('Severity', ''),
                 v.get('InstalledVersion', ''),
                 v.get('FixedVersion', '')
             ])
-    return rows, severity_count
+    return rows
 
 def create_table(data, col_widths, header_color, row_colors=[colors.white, colors.HexColor("#F2F2F2")]):
     """Crée un tableau stylé avec lignes alternées (zebra)."""
@@ -80,75 +76,56 @@ def generate_pdf(trivy_fs, trivy_img, sonar_metrics, output_file):
     styles.add(ParagraphStyle(name='Heading1Center', parent=styles['Heading1'], alignment=1))
     styles.add(ParagraphStyle(name='NormalJustify', parent=styles['Normal'], alignment=4, leading=14))
 
-    # ===== Titre =====
+    # Titre principal
     elements.append(Paragraph("Rapport CI/CD - SonarQube + Trivy", styles['Heading1Center']))
     elements.append(Spacer(1, 15))
 
-    # ===== Résumé exécutif =====
+    # Résumé exécutif
     elements.append(Paragraph("Résumé exécutif", styles['Heading2']))
-    resume = "Ce rapport présente les résultats des analyses de qualité de code et sécurité avec SonarQube, ainsi que les vulnérabilités détectées dans le système et l'image Docker par Trivy."
+    resume = """
+    Ce rapport présente les résultats des analyses de qualité de code et sécurité avec SonarQube,
+    ainsi que les vulnérabilités détectées dans le système et l'image Docker par Trivy.
+    """
     elements.append(Paragraph(resume, styles['NormalJustify']))
     elements.append(Spacer(1, 15))
 
-    # ===== Résumé SonarQube =====
-    elements.append(Paragraph("Résumé SonarQube", styles['Heading2']))
+    # Section SonarQube
+    elements.append(Paragraph("Résultats SonarQube", styles['Heading2']))
     if sonar_metrics and 'component' in sonar_metrics:
         measures = {m['metric']: m['value'] for m in sonar_metrics['component']['measures']}
-        bugs = int(measures.get("bugs", 0))
-        vulns = int(measures.get("vulnerabilities", 0))
-        smells = int(measures.get("code_smells", 0))
-        coverage = float(measures.get("coverage", 0))
-        duplications = float(measures.get("duplicated_lines_density", 0))
-
-        summary_text = f"Le projet présente {bugs} bugs, {vulns} vulnérabilités, et {smells} code smells. La couverture du code est de {coverage}% et la duplication de {duplications}%."
-        elements.append(Paragraph(summary_text, styles['NormalJustify']))
-
-        # Recommandations
-        recs = []
-        if bugs > 0:
-            recs.append("Il est recommandé de corriger les bugs critiques avant déploiement.")
-        if coverage < 80:
-            recs.append("Améliorer les tests unitaires pour atteindre 80% de couverture.")
-        if vulns > 0:
-            recs.append("Corriger les vulnérabilités détectées pour améliorer la sécurité du code.")
-        for r in recs:
-            elements.append(Paragraph("• " + r, styles['Normal']))
+        data = [
+            ["Métrique", "Valeur"],
+            ["Bugs", measures.get("bugs", "0")],
+            ["Vulnérabilités", measures.get("vulnerabilities", "0")],
+            ["Code Smells", measures.get("code_smells", "0")],
+            ["Couverture (%)", measures.get("coverage", "0")],
+            ["Lignes de code", measures.get("ncloc", "0")],
+            ["Densité duplications (%)", measures.get("duplicated_lines_density", "0")]
+        ]
+        table = create_table(data, [250, 150], colors.HexColor("#4F81BD"))
+        elements.append(table)
     else:
         elements.append(Paragraph("⚠️ Impossible de récupérer les données SonarQube.", styles['Normal']))
     elements.append(Spacer(1, 20))
 
-    # ===== Section Trivy Filesystem =====
+    # Section Trivy Filesystem
     elements.append(Paragraph("Analyse Trivy - Système de fichiers", styles['Heading2']))
-    fs_rows, fs_sev = format_trivy_results(trivy_fs)
+    fs_rows = format_trivy_results(trivy_fs)
     if len(fs_rows) == 1:
         elements.append(Paragraph("✅ Aucune vulnérabilité critique ou haute trouvée.", styles['Normal']))
-    else:
-        summary_trivy = f"L’analyse système détecte {fs_sev.get('CRITICAL',0)} vulnérabilités critiques, {fs_sev.get('HIGH',0)} hautes, {fs_sev.get('MEDIUM',0)} moyennes et {fs_sev.get('LOW',0)} basses."
-        elements.append(Paragraph(summary_trivy, styles['NormalJustify']))
     fs_table = create_table(fs_rows, [100, 100, 80, 100, 100], colors.HexColor("#C0504D"))
     elements.append(fs_table)
     elements.append(Spacer(1, 20))
 
-    # ===== Section Trivy Image =====
+    # Section Trivy Image
     elements.append(Paragraph("Analyse Trivy - Image Docker", styles['Heading2']))
-    img_rows, img_sev = format_trivy_results(trivy_img)
+    img_rows = format_trivy_results(trivy_img)
     if len(img_rows) == 1:
         elements.append(Paragraph("✅ Aucune vulnérabilité critique ou haute trouvée dans l'image.", styles['Normal']))
-    else:
-        summary_img = f"L’image Docker contient {img_sev.get('CRITICAL',0)} vulnérabilités critiques, {img_sev.get('HIGH',0)} hautes, {img_sev.get('MEDIUM',0)} moyennes et {img_sev.get('LOW',0)} basses."
-        elements.append(Paragraph(summary_img, styles['NormalJustify']))
-        # Recommandations
-        recs = []
-        if img_sev.get('CRITICAL',0) > 0:
-            recs.append("Mettre à jour les packages critiques immédiatement.")
-        if img_sev.get('HIGH',0) > 1:
-            recs.append("Considérer la reconstruction de l’image avec versions sécurisées.")
-        for r in recs:
-            elements.append(Paragraph("• " + r, styles['Normal']))
     img_table = create_table(img_rows, [100, 100, 80, 100, 100], colors.HexColor("#9BBB59"))
     elements.append(img_table)
 
-    # ===== Fin PDF =====
+    # Fin du PDF
     doc.build(elements)
     print(f"✅ Rapport PDF généré : {output_file}")
 
