@@ -9,7 +9,7 @@ pipeline {
         DATABASE_URL  = "sqlite:///./test_banking.db"
         IMAGE_NAME    = "siwarmejri/simple-banking"
         IMAGE_TAG     = "latest"
-        SONAR_TOKEN = credentials('sonar-token')
+        SONAR_TOKEN   = credentials('sonar-token')
     }
 
     stages {
@@ -75,7 +75,7 @@ pipeline {
                               -Dsonar.python.version=3.10 \
                               -Dsonar.python.coverage.reportPaths=coverage.xml \
                               -Dsonar.host.url=$SONAR_HOST_URL \
-                              -Dsonar.token=${SONAR_TOKEN}
+                              -Dsonar.token=$SONAR_TOKEN
                         """
                     }
                 }
@@ -93,13 +93,13 @@ pipeline {
             steps {
                 echo "🛡️ Scan des vulnérabilités avec Trivy..."
                 script {
-                    // Scan FS
+                    // Scan FS - toutes vulnérabilités, jamais bloquant
                     sh """
                         trivy fs --exit-code 0 --format table --output trivy-report.txt .
                         trivy fs --exit-code 0 --format json --output trivy-report.json .
                     """
 
-                    // Scan image Docker
+                    // Scan image Docker - toutes vulnérabilités, jamais bloquant
                     sh """
                         trivy image --exit-code 0 --format table --output trivy-image-report.txt ${IMAGE_NAME}:${IMAGE_TAG}
                         trivy image --exit-code 0 --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG}
@@ -114,26 +114,14 @@ pipeline {
         stage('Generate PDF, Email & Push Docker') {
             steps {
                 echo "📄 Génération du rapport PDF + envoi email + push Docker"
-                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN'),
-                                 usernamePassword(credentialsId: 'dockerhub-credentials',
-                                                  usernameVariable: 'DOCKER_USER',
-                                                  passwordVariable: 'DOCKER_PASS')]) {
-                    sh """
-                        . ${VENV_DIR}/bin/activate
-                        python3 generate_full_report.py \
-                          --trivy-json trivy-report.json \
-                          --trivy-image-json trivy-image-report.json \
-                          --sonarqube-project simple-banking \
-                          --sonar-token $SONAR_TOKEN \
-                          --output full_report.pdf
-
-                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} $DOCKER_USER/simple-banking:latest
-                        docker push $DOCKER_USER/simple-banking:latest
-                        docker logout
-                    """
-                }
-
+                sh """
+                    . ${VENV_DIR}/bin/activate
+                    python3 generate_full_report.py \
+                      --trivy-json trivy-report.json \
+                      --trivy-image-json trivy-image-report.json \
+                      --sonarqube-project simple-banking \
+                      --output full_report.pdf
+                """
                 archiveArtifacts artifacts: 'full_report.pdf', allowEmptyArchive: false
 
                 script {
@@ -148,6 +136,17 @@ pipeline {
                     } else {
                         echo "⚠️ PDF non généré, email non envoyé."
                     }
+                }
+
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials',
+                                                 usernameVariable: 'DOCKER_USER',
+                                                 passwordVariable: 'DOCKER_PASS')]) {
+                    sh '''
+                        echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} $DOCKER_USER/simple-banking:latest
+                        docker push $DOCKER_USER/simple-banking:latest
+                        docker logout
+                    '''
                 }
             }
         }
