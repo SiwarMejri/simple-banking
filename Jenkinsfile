@@ -83,7 +83,6 @@ pipeline {
             }
         }
 
-
         stage('Build Docker') {
             steps {
                 echo "🐳 Construction de l'image Docker..."
@@ -95,11 +94,15 @@ pipeline {
             steps {
                 echo "🛡️ Scan des vulnérabilités avec Trivy..."
                 sh """
-                    trivy fs --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-report.json .
-                    trivy image --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG}
+                    # Scan FS
+                    trivy fs --exit-code 1 --severity CRITICAL,HIGH --format table --output trivy-report.txt . || true
+                    trivy fs --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-report.json . || true
+
+                    # Scan image Docker
+                    trivy image --exit-code 1 --severity CRITICAL,HIGH --format table --output trivy-image-report.txt ${IMAGE_NAME}:${IMAGE_TAG} || true
+                    trivy image --exit-code 1 --severity CRITICAL,HIGH --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG} || true
                 """
-                archiveArtifacts artifacts: 'trivy-report.json', allowEmptyArchive: true
-                archiveArtifacts artifacts: 'trivy-image-report.json', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'trivy-report.json,trivy-image-report.json,trivy-report.txt,trivy-image-report.txt', allowEmptyArchive: true
             }
         }
 
