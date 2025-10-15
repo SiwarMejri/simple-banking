@@ -13,7 +13,6 @@ pipeline {
     }
 
     stages {
-
         stage('Checkout SCM') {
             steps {
                 echo "🔄 Récupération du code source..."
@@ -93,27 +92,21 @@ pipeline {
             steps {
                 echo "🛡️ Scan des vulnérabilités avec Trivy..."
                 script {
-                    // Scan FS
                     sh """
                         trivy fs --exit-code 0 --format table --output trivy-report.txt .
                         trivy fs --exit-code 0 --format json --output trivy-report.json .
-                    """
-
-                    // Scan image Docker
-                    sh """
                         trivy image --exit-code 0 --format table --output trivy-image-report.txt ${IMAGE_NAME}:${IMAGE_TAG}
                         trivy image --exit-code 0 --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG}
                     """
-
                     echo "✅ Scan Trivy terminé (FS + Image)"
                 }
                 archiveArtifacts artifacts: 'trivy-report.json,trivy-image-report.json,trivy-report.txt,trivy-image-report.txt', allowEmptyArchive: true
             }
         }
 
-        stage('Generate PDF, Email & Push Docker') {
+        stage('Generate PDF & Push Docker') {
             steps {
-                echo "📄 Génération du rapport PDF + envoi email + push Docker"
+                echo "📄 Génération du rapport PDF + push Docker"
                 withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN'),
                                  usernamePassword(credentialsId: 'dockerhub-credentials',
                                                   usernameVariable: 'DOCKER_USER',
@@ -133,22 +126,7 @@ pipeline {
                         docker logout
                     """
                 }
-
                 archiveArtifacts artifacts: 'full_report.pdf', allowEmptyArchive: false
-
-                script {
-                    if (fileExists('full_report.pdf')) {
-                        emailext(
-                            subject: "📊 Rapport CI/CD - SonarQube + Trivy",
-                            body: "Bonjour,\n\nLe rapport PDF consolidé du projet simple-banking est ci-joint.\n\nCordialement.",
-                            to: "siwarmejri727@gmail.com",
-                            attachmentsPattern: "**/full_report.pdf",
-                            mimeType: 'application/pdf'
-                        )
-                    } else {
-                        echo "⚠️ PDF non généré, email non envoyé."
-                    }
-                }
             }
         }
 
@@ -160,7 +138,23 @@ pipeline {
     }
 
     post {
-        always { echo "🏁 Pipeline terminé" }
+        always {
+            echo "🏁 Pipeline terminé, tentative d'envoi du PDF par email..."
+            script {
+                if (fileExists('full_report.pdf')) {
+                    emailext(
+                        subject: "📊 Rapport CI/CD - SonarQube + Trivy",
+                        body: "Bonjour,\n\nLe rapport PDF consolidé du projet simple-banking est ci-joint.\n\nCordialement.",
+                        to: "siwarmejri727@gmail.com",
+                        attachmentsPattern: "full_report.pdf"
+                    )
+                    echo "✅ Email envoyé."
+                } else {
+                    echo "⚠️ PDF non généré, email non envoyé."
+                }
+            }
+        }
+
         success { echo "✅ Pipeline réussi" }
         failure { echo "❌ Pipeline échoué" }
     }
