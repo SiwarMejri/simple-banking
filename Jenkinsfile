@@ -74,6 +74,8 @@ pipeline {
                               -Dsonar.tests=src/app/tests \
                               -Dsonar.python.version=3.10 \
                               -Dsonar.python.coverage.reportPaths=coverage.xml \
+                              -Dsonar.exclusions=tests/**,**/__pycache__/** \
+                              -Dsonar.qualitygate.wait=true
                               -Dsonar.host.url=$SONAR_HOST_URL \
                               -Dsonar.token=$SONAR_TOKEN
                         """
