@@ -121,6 +121,8 @@ pipeline {
                       --trivy-image-json trivy-image-report.json \
                       --sonarqube-project simple-banking \
                       --output full_report.pdf
+                      --sonar-url http://192.168.240.139:9000 \
+                      --sonar-token amVua2lucy1jaS10b2tlbjo=
                 """
                 archiveArtifacts artifacts: 'full_report.pdf', allowEmptyArchive: false
 
