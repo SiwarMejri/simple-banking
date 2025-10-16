@@ -42,3 +42,4 @@ prometheus_client==0.23.1
 prometheus-fastapi-instrumentator==5.9.1
 python-multipart==0.0.8
 cryptography==41.0.0
+python-dotenv
