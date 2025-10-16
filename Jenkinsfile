@@ -101,6 +101,7 @@ pipeline {
 
                     // Scan image Docker - toutes vulnérabilités, jamais bloquant
                     sh """
+                        echo "🔍 Scan de l'image Docker ${IMAGE_NAME}:${IMAGE_TAG}..."
                         trivy image --exit-code 0 --format table --output trivy-image-report.txt ${IMAGE_NAME}:${IMAGE_TAG}
                         trivy image --exit-code 0 --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG}
                     """
