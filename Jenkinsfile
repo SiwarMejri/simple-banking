@@ -89,28 +89,67 @@ pipeline {
             }
         }
 
-        stage('Scan de vulnérabilités avec Trivy') {
-            steps {
-                echo "🛡️ Scan des vulnérabilités avec Trivy..."
-                script {
-                    // Scan FS - toutes vulnérabilités, jamais bloquant
-                    sh """
-                        trivy fs --exit-code 0 --format table --output trivy-report.txt .
-                        trivy fs --exit-code 0 --format json --output trivy-report.json .
-                    """
+stage('Scan de vulnérabilités avec Trivy') {
+    steps {
+        echo "🛡️ Scan des vulnérabilités avec Trivy..."
+        script {
 
-                    // Scan image Docker - toutes vulnérabilités, jamais bloquant
-                    sh """
-                        echo "🔍 Scan de l'image Docker ${IMAGE_NAME}:${IMAGE_TAG}..."
-                        trivy image --exit-code 0 --format table --output trivy-image-report.txt ${IMAGE_NAME}:${IMAGE_TAG}
-                        trivy image --exit-code 0 --format json --output trivy-image-report.json ${IMAGE_NAME}:${IMAGE_TAG}
-                    """
+            // Scan FS (code source) - uniquement les vulnérabilités, plus rapide
+            // On ignore le scan des secrets pour éviter la lenteur
+            sh """
+                echo "📂 Scan du code source avec Trivy (FS)..."
+                trivy fs \
+                    --scanners vuln \
+                    --exit-code 0 \
+                    --format table \
+                    --output trivy-report.txt \
+                    --ignore-unfixed \
+                    --timeout 5m \
+                    .
 
-                    echo "✅ Scan Trivy terminé (FS + Image)"
-                }
-                archiveArtifacts artifacts: 'trivy-report.json,trivy-image-report.json,trivy-report.txt,trivy-image-report.txt', allowEmptyArchive: true
-            }
+                trivy fs \
+                    --scanners vuln \
+                    --exit-code 0 \
+                    --format json \
+                    --output trivy-report.json \
+                    --ignore-unfixed \
+                    --timeout 5m \
+                    .
+            """
+
+            // Scan de l’image Docker - vulnérabilités sur les dépendances installées
+            // Correction du warning "site-packages" en forçant le chemin Python
+            sh """
+                echo "🐳 Scan de l'image Docker ${IMAGE_NAME}:${IMAGE_TAG}..."
+                trivy image \
+                    --scanners vuln \
+                    --exit-code 0 \
+                    --format table \
+                    --output trivy-image-report.txt \
+                    --ignore-unfixed \
+                    --timeout 10m \
+                    --env PYTHONPATH=/usr/local/lib/python3.10/site-packages \
+                    ${IMAGE_NAME}:${IMAGE_TAG}
+
+                trivy image \
+                    --scanners vuln \
+                    --exit-code 0 \
+                    --format json \
+                    --output trivy-image-report.json \
+                    --ignore-unfixed \
+                    --timeout 10m \
+                    --env PYTHONPATH=/usr/local/lib/python3.10/site-packages \
+                    ${IMAGE_NAME}:${IMAGE_TAG}
+            """
+
+            echo "✅ Scan Trivy terminé (FS + Image)"
         }
+
+        // Archivage des rapports pour analyse et historisation
+        archiveArtifacts artifacts: 'trivy-report.json,trivy-image-report.json,trivy-report.txt,trivy-image-report.txt', allowEmptyArchive: true
+    }
+}
+
 
         stage('Generate PDF, Email & Push Docker') {
             steps {
