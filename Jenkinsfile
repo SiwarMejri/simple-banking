@@ -84,24 +84,37 @@ pipeline {
         }
 
         stage('Vérification Quality Gate') {
-            steps {
-                script {
-                    try {
-                        timeout(time: 10, unit: 'MINUTES') {
-                            def qg = waitForQualityGate()
-                            if (qg.status != 'OK') {
-                                echo "⚠️ Quality Gate échoué: ${qg.status}"
-                                error("❌ Pipeline échoué à cause du Quality Gate")
-                            } else {
-                                echo "✅ Quality Gate réussi"
-                            }
+    steps {
+        script {
+            try {
+                timeout(time: 10, unit: 'MINUTES') {
+                    def qg = waitForQualityGate()
+                    
+                    // Affiche toutes les informations du Quality Gate
+                    echo "🔍 Résultat complet du Quality Gate : ${qg.toString()}"
+                    
+                    // Affiche les conditions détaillées
+                    if (qg.conditions) {
+                        qg.conditions.each { cond ->
+                            echo "Metric: ${cond.metric}, Status: ${cond.status}, Value: ${cond.value}, Threshold: ${cond.errorThreshold}"
                         }
-                    } catch (err) {
-                        echo "⚠️ Impossible de récupérer le Quality Gate ou erreur: ${err}"
+                    }
+                    
+                    // Vérifie le statut global
+                    if (qg.status != 'OK') {
+                        echo "⚠️ Quality Gate échoué: ${qg.status}"
+                        error("❌ Pipeline échoué à cause du Quality Gate")
+                    } else {
+                        echo "✅ Quality Gate réussi"
                     }
                 }
+            } catch (err) {
+                echo "⚠️ Impossible de récupérer le Quality Gate ou erreur: ${err}"
             }
         }
+    }
+}
+
 
         stage('Build Docker') {
             steps {
