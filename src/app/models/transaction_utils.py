@@ -5,6 +5,11 @@ from contextlib import contextmanager
 from models.database import SessionLocal  # ✅ corrigé
 from models.transaction import Transaction  # ✅ corrigé
 
+# ✅ Définition des constantes pour éviter la répétition
+INVALID_AMOUNT_MSG = "Montant invalide"
+INSUFFICIENT_BALANCE_MSG = "Solde insuffisant"
+
+
 @contextmanager
 def get_db():
     db = SessionLocal()
@@ -13,6 +18,7 @@ def get_db():
     finally:
         db.close()
 
+
 def process_deposit(transaction: dict, response: Response = None):
     destination = transaction.get("destination")
     amount = transaction.get("amount")
@@ -20,8 +26,8 @@ def process_deposit(transaction: dict, response: Response = None):
     if amount is None or amount <= 0:
         if response:
             response.status_code = 400
-            return {"error": "Montant invalide"}
-        raise ValueError("Montant invalide")
+            return {"error": INVALID_AMOUNT_MSG}
+        raise ValueError(INVALID_AMOUNT_MSG)
 
     with get_db() as db:
         previous_tx = db.query(Transaction).filter_by(destination=destination).all()
@@ -40,6 +46,7 @@ def process_deposit(transaction: dict, response: Response = None):
         "destination": {"id": destination, "balance": new_balance}
     }
 
+
 def process_withdraw(transaction: dict, response: Response = None):
     origin = transaction.get("origin")
     amount = transaction.get("amount")
@@ -47,8 +54,8 @@ def process_withdraw(transaction: dict, response: Response = None):
     if amount is None or amount <= 0:
         if response:
             response.status_code = 400
-            return {"error": "Montant invalide"}
-        raise ValueError("Montant invalide")
+            return {"error": INVALID_AMOUNT_MSG}
+        raise ValueError(INVALID_AMOUNT_MSG)
 
     with get_db() as db:
         previous_tx = db.query(Transaction).filter_by(destination=origin).all()
@@ -58,8 +65,8 @@ def process_withdraw(transaction: dict, response: Response = None):
         if amount > current_balance:
             if response:
                 response.status_code = 403
-                return {"error": "Solde insuffisant"}
-            raise ValueError("Solde insuffisant")
+                return {"error": INSUFFICIENT_BALANCE_MSG}
+            raise ValueError(INSUFFICIENT_BALANCE_MSG)
 
         new_balance = current_balance - amount
         tx = Transaction(type="withdraw", amount=amount, destination=origin)
@@ -73,6 +80,7 @@ def process_withdraw(transaction: dict, response: Response = None):
         "destination": None
     }
 
+
 def process_transfer(transaction: dict, response: Response = None):
     origin = transaction.get("origin")
     destination = transaction.get("destination")
@@ -81,8 +89,8 @@ def process_transfer(transaction: dict, response: Response = None):
     if amount is None or amount <= 0:
         if response:
             response.status_code = 400
-            return {"error": "Montant invalide"}
-        raise ValueError("Montant invalide")
+            return {"error": INVALID_AMOUNT_MSG}
+        raise ValueError(INVALID_AMOUNT_MSG)
 
     with get_db() as db:
         previous_tx_origin = db.query(Transaction).filter_by(destination=origin).all()
@@ -92,8 +100,8 @@ def process_transfer(transaction: dict, response: Response = None):
         if amount > balance_origin:
             if response:
                 response.status_code = 403
-                return {"error": "Solde insuffisant"}
-            raise ValueError("Solde insuffisant")
+                return {"error": INSUFFICIENT_BALANCE_MSG}
+            raise ValueError(INSUFFICIENT_BALANCE_MSG)
 
         tx_origin = Transaction(type="withdraw", amount=amount, destination=origin)
         tx_dest = Transaction(type="deposit", amount=amount, destination=destination)
