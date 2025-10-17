@@ -76,7 +76,7 @@ pipeline {
                               -Dsonar.python.version=3.10 \
                               -Dsonar.python.coverage.reportPaths=coverage.xml \
                               -Dsonar.host.url=$SONAR_HOST_URL \
-                              -Dsonar.login=$SONAR_TOKEN
+                              -Dsonar.token=$SONAR_TOKEN
                         """
                     }
                 }
@@ -87,7 +87,7 @@ pipeline {
             steps {
                 script {
                     try {
-                        timeout(time: 5, unit: 'MINUTES') {
+                        timeout(time: 10, unit: 'MINUTES') {
                             def qg = waitForQualityGate()
                             if (qg.status != 'OK') {
                                 echo "⚠️ Quality Gate échoué: ${qg.status}"
