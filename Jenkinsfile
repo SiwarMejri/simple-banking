@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         VENV_DIR      = "${WORKSPACE}/venv"
-        PYTHONPATH    = "${WORKSPACE}/src"
+        PYTHONPATH    = "${WORKSPACE}/src/app"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test"
         DATABASE_URL  = "sqlite:///./test_banking.db"
@@ -44,7 +44,7 @@ pipeline {
                             . ${VENV_DIR}/bin/activate
                             export DATABASE_URL="${DATABASE_URL}"
                             export PYTHONPATH=$WORKSPACE/src/app
-                            pytest --disable-warnings --cov=src --cov-report=xml:coverage.xml -v | tee pytest-output.log
+                            pytest --disable-warnings --cov=src/app --cov-report=xml:coverage.xml -v | tee pytest-output.log
                         """,
                         returnStatus: true
                     )
@@ -67,6 +67,7 @@ pipeline {
                     script {
                         def scannerHome = tool 'sonar-scanner'
                         sh """
+                            . ${VENV_DIR}/bin/activate
                             ${scannerHome}/bin/sonar-scanner \
                               -Dsonar.projectKey=simple-banking \
                               -Dsonar.sources=src/app \
@@ -74,15 +75,15 @@ pipeline {
                               -Dsonar.tests=src/app/tests \
                               -Dsonar.python.version=3.10 \
                               -Dsonar.python.coverage.reportPaths=coverage.xml \
-                              -Dsonar.qualitygate.wait=true \
                               -Dsonar.host.url=$SONAR_HOST_URL \
-                              -Dsonar.token=$SONAR_TOKEN
+                              -Dsonar.login=$SONAR_TOKEN
                         """
                     }
                 }
             }
         }
-              stage('Vérification Quality Gate') {
+
+        stage('Vérification Quality Gate') {
             steps {
                 script {
                     try {
@@ -90,6 +91,7 @@ pipeline {
                             def qg = waitForQualityGate()
                             if (qg.status != 'OK') {
                                 echo "⚠️ Quality Gate échoué: ${qg.status}"
+                                error("❌ Pipeline échoué à cause du Quality Gate")
                             } else {
                                 echo "✅ Quality Gate réussi"
                             }
@@ -100,7 +102,6 @@ pipeline {
                 }
             }
         }
-
 
         stage('Build Docker') {
             steps {
@@ -113,58 +114,17 @@ pipeline {
             steps {
                 echo "🛡️ Scan des vulnérabilités avec Trivy..."
                 script {
-                    // Scan FS (code source) - uniquement les vulnérabilités, plus rapide
-                    // On ignore le scan des secrets pour éviter la lenteur
                     sh """
                         echo "📂 Scan du code source avec Trivy (FS)..."
-                        trivy fs \
-                            --scanners vuln \
-                            --exit-code 0 \
-                            --format table \
-                            --output trivy-report.txt \
-                            --ignore-unfixed \
-                            --timeout 5m \
-                            .
-
-                        trivy fs \
-                            --scanners vuln \
-                            --exit-code 0 \
-                            --format json \
-                            --output trivy-report.json \
-                            --ignore-unfixed \
-                            --timeout 5m \
-                            .
-                    """
-
-                    // Scan de l’image Docker - vulnérabilités sur les dépendances installées
-                    // Correction du warning "site-packages" en forçant le chemin Python
-                    sh """
+                        trivy fs --scanners vuln --exit-code 0 --format table --output trivy-report.txt --ignore-unfixed --timeout 5m .
+                        trivy fs --scanners vuln --exit-code 0 --format json  --output trivy-report.json --ignore-unfixed --timeout 5m .
+                        
                         echo "🐳 Scan de l'image Docker ${IMAGE_NAME}:${IMAGE_TAG}..."
-                        trivy image \
-                            --scanners vuln \
-                            --exit-code 0 \
-                            --format table \
-                            --output trivy-image-report.txt \
-                            --ignore-unfixed \
-                            --timeout 10m \
-                            --env PYTHONPATH=/usr/local/lib/python3.10/site-packages \
-                            ${IMAGE_NAME}:${IMAGE_TAG}
-
-                        trivy image \
-                            --scanners vuln \
-                            --exit-code 0 \
-                            --format json \
-                            --output trivy-image-report.json \
-                            --ignore-unfixed \
-                            --timeout 10m \
-                            --env PYTHONPATH=/usr/local/lib/python3.10/site-packages \
-                            ${IMAGE_NAME}:${IMAGE_TAG}
+                        trivy image --scanners vuln --exit-code 0 --format table --output trivy-image-report.txt --ignore-unfixed --timeout 10m ${IMAGE_NAME}:${IMAGE_TAG}
+                        trivy image --scanners vuln --exit-code 0 --format json  --output trivy-image-report.json --ignore-unfixed --timeout 10m ${IMAGE_NAME}:${IMAGE_TAG}
                     """
-
                     echo "✅ Scan Trivy terminé (FS + Image)"
                 }
-
-                // Archivage des rapports pour analyse et historisation
                 archiveArtifacts artifacts: 'trivy-report.json,trivy-image-report.json,trivy-report.txt,trivy-image-report.txt', allowEmptyArchive: true
             }
         }
@@ -179,8 +139,8 @@ pipeline {
                       --trivy-image-json trivy-image-report.json \
                       --sonarqube-project simple-banking \
                       --output full_report.pdf \
-                      --sonar-url http://192.168.240.139:9000 \
-                      --sonar-token amVua2lucy1jaS10b2tlbjo=
+                      --sonar-url $SONAR_HOST_URL \
+                      --sonar-token $SONAR_TOKEN
                 """
                 archiveArtifacts artifacts: 'full_report.pdf', allowEmptyArchive: false
 
