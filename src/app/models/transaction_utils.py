@@ -4,6 +4,7 @@ from fastapi import Response
 from contextlib import contextmanager
 from models.database import SessionLocal  # ✅ corrigé
 from models.transaction import Transaction  # ✅ corrigé
+from src.app.models.transaction_utils import process_deposit, process_withdraw, process_transfer
 
 # ✅ Définition des constantes pour éviter la répétition
 INVALID_AMOUNT_MSG = "Montant invalide"
@@ -17,7 +18,21 @@ def get_db():
         yield db
     finally:
         db.close()
+def test_process_deposit_valid():
+    result = process_deposit({"destination": "A", "amount": 100})
+    assert result["destination"]["balance"] == 100
 
+def test_process_withdraw_invalid_amount():
+    try:
+        process_withdraw({"origin": "A", "amount": -50})
+    except ValueError as e:
+        assert "Montant invalide" in str(e)
+
+def test_transfer_insufficient_balance():
+    try:
+        process_transfer({"origin": "A", "destination": "B", "amount": 500})
+    except ValueError as e:
+        assert "Solde insuffisant" in str(e)
 
 def process_deposit(transaction: dict, response: Response = None):
     destination = transaction.get("destination")
