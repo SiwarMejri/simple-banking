@@ -1,8 +1,8 @@
 # src/app/core/core.py
 
 from typing import Optional, Dict
-from .models.account import Account
-from .models.database import Base, engine
+from models.account import Account
+from models.database import Base, engine
 
 # ---------------- Stockage en mémoire ----------------
 accounts: Dict[str, Account] = {}
