@@ -1,138 +1,96 @@
-# src/app/models/transaction_utils.py
+# tests/test_transaction_utils.py
 
+import pytest
+from unittest.mock import patch, MagicMock
 from fastapi import Response
-from contextlib import contextmanager
-from models.database import SessionLocal  # ✅ corrigé
-from models.transaction import Transaction  # ✅ corrigé
-from src.app.models.transaction_utils import process_deposit, process_withdraw, process_transfer
+from src.app.models.transaction_utils import (
+    process_deposit,
+    process_withdraw,
+    process_transfer,
+    INVALID_AMOUNT_MSG,
+    INSUFFICIENT_BALANCE_MSG
+)
 
-# ✅ Définition des constantes pour éviter la répétition
-INVALID_AMOUNT_MSG = "Montant invalide"
-INSUFFICIENT_BALANCE_MSG = "Solde insuffisant"
+# ------------------ Fixtures ------------------
+@pytest.fixture
+def mock_db_session():
+    """Mock de SessionLocal pour éviter de toucher à la vraie DB"""
+    with patch("src.app.models.transaction_utils.SessionLocal") as mock_session:
+        mock_db = MagicMock()
+        mock_session.return_value = mock_db
+        yield mock_db
 
+@pytest.fixture
+def response():
+    return Response()
 
-@contextmanager
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-def test_process_deposit_valid():
-    result = process_deposit({"destination": "A", "amount": 100})
+# ------------------ Tests process_deposit ------------------
+def test_process_deposit_success(mock_db_session):
+    transaction = {"destination": "A", "amount": 100}
+    result = process_deposit(transaction)
+    assert result["type"] == "deposit"
+    assert result["destination"]["id"] == "A"
     assert result["destination"]["balance"] == 100
 
-def test_process_withdraw_invalid_amount():
-    try:
-        process_withdraw({"origin": "A", "amount": -50})
-    except ValueError as e:
-        assert "Montant invalide" in str(e)
+def test_process_deposit_invalid_amount(response):
+    transaction = {"destination": "A", "amount": -10}
+    result = process_deposit(transaction, response)
+    assert response.status_code == 400
+    assert result["error"] == INVALID_AMOUNT_MSG
 
-def test_transfer_insufficient_balance():
-    try:
-        process_transfer({"origin": "A", "destination": "B", "amount": 500})
-    except ValueError as e:
-        assert "Solde insuffisant" in str(e)
+# ------------------ Tests process_withdraw ------------------
+def test_process_withdraw_success(mock_db_session):
+    transaction = {"origin": "A", "amount": 50}
+    # Simuler un solde de 100
+    mock_db_session.query().filter_by().all.return_value = [
+        MagicMock(type="deposit", amount=100)
+    ]
+    result = process_withdraw(transaction)
+    assert result["type"] == "withdraw"
+    assert result["origin"]["balance"] == 50
 
-def process_deposit(transaction: dict, response: Response = None):
-    destination = transaction.get("destination")
-    amount = transaction.get("amount")
+def test_process_withdraw_insufficient_balance(response, mock_db_session):
+    transaction = {"origin": "A", "amount": 200}
+    mock_db_session.query().filter_by().all.return_value = [
+        MagicMock(type="deposit", amount=100)
+    ]
+    result = process_withdraw(transaction, response)
+    assert response.status_code == 403
+    assert result["error"] == INSUFFICIENT_BALANCE_MSG
 
-    if amount is None or amount <= 0:
-        if response:
-            response.status_code = 400
-            return {"error": INVALID_AMOUNT_MSG}
-        raise ValueError(INVALID_AMOUNT_MSG)
+def test_process_withdraw_invalid_amount(response):
+    transaction = {"origin": "A", "amount": -5}
+    result = process_withdraw(transaction, response)
+    assert response.status_code == 400
+    assert result["error"] == INVALID_AMOUNT_MSG
 
-    with get_db() as db:
-        previous_tx = db.query(Transaction).filter_by(destination=destination).all()
-        current_balance = sum(tx.amount for tx in previous_tx if tx.type == "deposit") \
-                          - sum(tx.amount for tx in previous_tx if tx.type == "withdraw")
-        new_balance = current_balance + amount
+# ------------------ Tests process_transfer ------------------
+def test_process_transfer_success(mock_db_session):
+    transaction = {"origin": "A", "destination": "B", "amount": 50}
 
-        tx = Transaction(type="deposit", amount=amount, destination=destination)
-        db.add(tx)
-        db.commit()
-        db.refresh(tx)
+    # Fonction pour simuler différents soldes selon l'utilisateur
+    def query_side_effect(*args, **kwargs):
+        if kwargs.get("destination") == "A":
+            return [MagicMock(type="deposit", amount=100)]
+        return []
 
-    return {
-        "type": tx.type,
-        "origin": None,
-        "destination": {"id": destination, "balance": new_balance}
-    }
+    mock_db_session.query().filter_by().all.side_effect = query_side_effect
+    result = process_transfer(transaction)
+    assert result["type"] == "transfer"
+    assert result["origin"]["balance"] == 50
+    assert result["destination"]["balance"] == 50
 
+def test_process_transfer_insufficient_balance(response, mock_db_session):
+    transaction = {"origin": "A", "destination": "B", "amount": 200}
+    mock_db_session.query().filter_by().all.return_value = [
+        MagicMock(type="deposit", amount=100)
+    ]
+    result = process_transfer(transaction, response)
+    assert response.status_code == 403
+    assert result["error"] == INSUFFICIENT_BALANCE_MSG
 
-def process_withdraw(transaction: dict, response: Response = None):
-    origin = transaction.get("origin")
-    amount = transaction.get("amount")
-
-    if amount is None or amount <= 0:
-        if response:
-            response.status_code = 400
-            return {"error": INVALID_AMOUNT_MSG}
-        raise ValueError(INVALID_AMOUNT_MSG)
-
-    with get_db() as db:
-        previous_tx = db.query(Transaction).filter_by(destination=origin).all()
-        current_balance = sum(tx.amount for tx in previous_tx if tx.type == "deposit") \
-                          - sum(tx.amount for tx in previous_tx if tx.type == "withdraw")
-
-        if amount > current_balance:
-            if response:
-                response.status_code = 403
-                return {"error": INSUFFICIENT_BALANCE_MSG}
-            raise ValueError(INSUFFICIENT_BALANCE_MSG)
-
-        new_balance = current_balance - amount
-        tx = Transaction(type="withdraw", amount=amount, destination=origin)
-        db.add(tx)
-        db.commit()
-        db.refresh(tx)
-
-    return {
-        "type": tx.type,
-        "origin": {"id": origin, "balance": new_balance},
-        "destination": None
-    }
-
-
-def process_transfer(transaction: dict, response: Response = None):
-    origin = transaction.get("origin")
-    destination = transaction.get("destination")
-    amount = transaction.get("amount")
-
-    if amount is None or amount <= 0:
-        if response:
-            response.status_code = 400
-            return {"error": INVALID_AMOUNT_MSG}
-        raise ValueError(INVALID_AMOUNT_MSG)
-
-    with get_db() as db:
-        previous_tx_origin = db.query(Transaction).filter_by(destination=origin).all()
-        balance_origin = sum(tx.amount for tx in previous_tx_origin if tx.type == "deposit") \
-                         - sum(tx.amount for tx in previous_tx_origin if tx.type == "withdraw")
-
-        if amount > balance_origin:
-            if response:
-                response.status_code = 403
-                return {"error": INSUFFICIENT_BALANCE_MSG}
-            raise ValueError(INSUFFICIENT_BALANCE_MSG)
-
-        tx_origin = Transaction(type="withdraw", amount=amount, destination=origin)
-        tx_dest = Transaction(type="deposit", amount=amount, destination=destination)
-        db.add(tx_origin)
-        db.add(tx_dest)
-        db.commit()
-        db.refresh(tx_origin)
-        db.refresh(tx_dest)
-
-        previous_tx_dest = db.query(Transaction).filter_by(destination=destination).all()
-        new_balance_dest = sum(tx.amount for tx in previous_tx_dest if tx.type == "deposit") \
-                           - sum(tx.amount for tx in previous_tx_dest if tx.type == "withdraw")
-        new_balance_origin = balance_origin - amount
-
-    return {
-        "type": "transfer",
-        "origin": {"id": origin, "balance": new_balance_origin},
-        "destination": {"id": destination, "balance": new_balance_dest}
-    }
+def test_process_transfer_invalid_amount(response):
+    transaction = {"origin": "A", "destination": "B", "amount": -10}
+    result = process_transfer(transaction, response)
+    assert response.status_code == 400
+    assert result["error"] == INVALID_AMOUNT_MSG
