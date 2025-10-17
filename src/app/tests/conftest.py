@@ -9,9 +9,17 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from app.main import app
 from app.models.base import Base
-from app.models.database import engine
+from app.models.database import SessionLocal, engine
 from app.core import core
 
+@pytest.fixture(scope="function")
+def db():
+    """Fixture pour initialiser et nettoyer la base avant/après chaque test"""
+    Base.metadata.create_all(bind=engine)
+    session = SessionLocal()
+    yield session
+    session.close()
+    Base.metadata.drop_all(bind=engine)
 # ------------------ Client TestClient global ------------------
 @pytest.fixture(scope="session")
 def client():
