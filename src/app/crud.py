@@ -1,15 +1,14 @@
 from sqlalchemy.orm import Session
-from app.models.user import User
-from app.models.account import Account
-from app.schemas import UserCreate, AccountCreate  # ✅ Import correct
+from src.app.models import User, Account
+from src.app.schemas import UserCreate, AccountCreate
 
-# --------- USER CRUD ---------
+# -------------------- Users --------------------
 def create_user(db: Session, user: UserCreate):
-    fake_hashed_password = user.password + "notreallyhashed"
+    # Ici on garde la logique de password non hashé pour l'exemple
     db_user = User(
         name=user.name,
         email=user.email,
-        hashed_password=fake_hashed_password
+        password=user.password
     )
     db.add(db_user)
     db.commit()
@@ -19,14 +18,12 @@ def create_user(db: Session, user: UserCreate):
 def get_user(db: Session, user_id: int):
     return db.query(User).filter(User.id == user_id).first()
 
-# --------- ACCOUNT CRUD ---------
-def get_account(db: Session, account_id: str):
-    return db.query(Account).filter(Account.id == account_id).first()
-
+# -------------------- Accounts --------------------
 def create_account(db: Session, account: AccountCreate):
+    # Mapping user_id -> owner_id du modèle Account
     db_account = Account(
         id=account.id,
-        user_id=account.user_id,
+        owner_id=account.user_id,  # <--- correction importante
         balance=0
     )
     db.add(db_account)
@@ -34,7 +31,10 @@ def create_account(db: Session, account: AccountCreate):
     db.refresh(db_account)
     return db_account
 
-def update_balance(db: Session, account: Account, amount: int):
+def get_account(db: Session, account_id: str):
+    return db.query(Account).filter(Account.id == account_id).first()
+
+def update_balance(db: Session, account: Account, amount: float):
     account.balance += amount
     db.commit()
     db.refresh(account)
