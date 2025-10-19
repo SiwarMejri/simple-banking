@@ -6,6 +6,7 @@ from src.app.database import Base
 
 class Transaction(Base):
     __tablename__ = "transactions"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
     type = Column(String, nullable=False)
