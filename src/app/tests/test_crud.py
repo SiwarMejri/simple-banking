@@ -2,7 +2,24 @@
 import pytest
 from src.app.crud import create_user, get_user, create_account, get_account, update_balance
 from src.app.schemas import UserCreate, AccountCreate
+from src.app import crud
+from src.app.models import schemas
 
+@pytest.mark.parametrize("user_id,name,email", [(1, "Siwar", "siwar@example.com")])
+def test_create_user(mocker, user_id, name, email):
+    db = mocker.Mock()
+    user_data = schemas.UserCreate(name=name, email=email, password="1234")
+    mock_user = mocker.Mock(id=user_id, name=name, email=email)
+    db.add.return_value = None
+    db.commit.return_value = None
+    db.refresh.return_value = None
+    crud.create_user(db, user_data)
+    db.add.assert_called_once()
+
+def test_get_user_by_email(mocker):
+    db = mocker.Mock()
+    crud.get_user_by_email(db, "test@example.com")
+    db.query.assert_called_once()
 def test_create_user(db):
     user_data = UserCreate(name="Alice", email="alice@test.com", password="1234")
     user = create_user(db, user_data)
