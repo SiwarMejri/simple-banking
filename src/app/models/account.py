@@ -5,6 +5,7 @@ from src.app.database import Base
 
 class Account(Base):
     __tablename__ = "accounts"
+    __table_args__ = {'extend_existing': True}
 
     id = Column(String, primary_key=True, index=True)
     balance = Column(Float, default=0.0)
