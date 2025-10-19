@@ -1,7 +1,7 @@
 # tests/test_core.py
 import pytest
 from src.app.core import core
-from src.app.models.account import Account
+from .account import Account
 
 # ---------------- Fixtures ----------------
 @pytest.fixture
