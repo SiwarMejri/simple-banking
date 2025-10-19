@@ -6,7 +6,6 @@ from src.app.crud import create_user, create_account
 from src.app.schemas import UserCreate, AccountCreate
 from src.app.models.account import Account
 
-
 # ---------------- Fixtures ----------------
 @pytest.fixture
 def setup_accounts():
@@ -17,13 +16,11 @@ def setup_accounts():
     yield
     core.reset_state()
 
-
 # ---------------- Tests pour les fonctions en mémoire ----------------
 def test_create_or_update_account_new():
     core.reset_state()
     acc = core.create_or_update_account("u1", 200)
     assert acc.balance == 200
-
 
 def test_create_or_update_account_existing():
     core.reset_state()
@@ -31,32 +28,26 @@ def test_create_or_update_account_existing():
     acc = core.create_or_update_account("u1", 50)
     assert acc.balance == 150
 
-
 def test_withdraw_from_account_success(setup_accounts):
     result = core.withdraw_from_account("a1", 30)
     assert result.balance == 70
 
-
 def test_withdraw_from_account_insufficient(setup_accounts):
     assert core.withdraw_from_account("a2", 100) is None
 
-
 def test_withdraw_from_account_not_found():
     assert core.withdraw_from_account("xyz", 10) is None
-
 
 def test_transfer_between_accounts_success(setup_accounts):
     origin, dest = core.transfer_between_accounts("a1", "a2", 20)
     assert origin.balance == 80
     assert dest.balance == 70
 
-
 def test_transfer_between_accounts_insufficient(setup_accounts):
     origin, dest = core.transfer_between_accounts("a2", "a1", 200)
     assert origin is None and dest is None
 
-
-# ---------------- Tests pour la fonction transfer_money ----------------
+# ---------------- Tests pour la fonction transfer_money (base de données) ----------------
 def test_transfer_money_valid(mocker):
     db = mocker.Mock()
     sender = Account(id="a1", balance=100)
@@ -65,7 +56,6 @@ def test_transfer_money_valid(mocker):
     assert sender.balance == 70
     assert receiver.balance == 80
 
-
 def test_transfer_money_insufficient_balance(mocker):
     db = mocker.Mock()
     sender = Account(id="a1", balance=10)
@@ -73,8 +63,7 @@ def test_transfer_money_insufficient_balance(mocker):
     with pytest.raises(ValueError, match="Solde insuffisant"):
         core.transfer_money(db, sender, receiver, 100)
 
-
-# ---------------- Tests pour process_transaction ----------------
+# ---------------- Tests pour la fonction process_transaction ----------------
 def test_process_transaction_success(mocker):
     db = mocker.Mock()
     sender = Account(id="1", balance=200)
@@ -86,7 +75,6 @@ def test_process_transaction_success(mocker):
     assert sender.balance == 150
     assert receiver.balance == 150
 
-
 def test_process_transaction_insufficient_balance(mocker):
     db = mocker.Mock()
     sender = Account(id="1", balance=10)
@@ -96,7 +84,6 @@ def test_process_transaction_insufficient_balance(mocker):
     result = core.process_transaction(db, data)
     assert result["status"] == "failed"
     assert "Solde insuffisant" in result["reason"]
-
 
 def test_process_transaction_invalid_accounts(mocker):
     db = mocker.Mock()
