@@ -1,4 +1,4 @@
-# src/app/models/schemas.py
+# src/app/schemas.py
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List
@@ -13,6 +13,8 @@ class UserCreate(UserBase):
 
 class User(UserBase):
     id: int
+    accounts: Optional[List["Account"]] = []
+
     class Config:
         orm_mode = True
 
@@ -26,6 +28,7 @@ class AccountCreate(AccountBase):
 
 class Account(AccountBase):
     owner_id: Optional[int]
+
     class Config:
         orm_mode = True
 
