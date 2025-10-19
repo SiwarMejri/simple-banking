@@ -1,14 +1,15 @@
+# src/app/crud.py
 from sqlalchemy.orm import Session
-from src.app.models import User, Account
+from src.app.models.user import User
+from src.app.models.account import Account
 from src.app.schemas import UserCreate, AccountCreate
 
-# -------------------- Users --------------------
+# -------------------- USERS --------------------
 def create_user(db: Session, user: UserCreate):
-    # Ici on garde la logique de password non hashé pour l'exemple
     db_user = User(
         name=user.name,
         email=user.email,
-        password=user.password
+        password=user.password  # ici pour tests, pas hashé
     )
     db.add(db_user)
     db.commit()
@@ -18,12 +19,11 @@ def create_user(db: Session, user: UserCreate):
 def get_user(db: Session, user_id: int):
     return db.query(User).filter(User.id == user_id).first()
 
-# -------------------- Accounts --------------------
+# -------------------- ACCOUNTS --------------------
 def create_account(db: Session, account: AccountCreate):
-    # Mapping user_id -> owner_id du modèle Account
     db_account = Account(
         id=account.id,
-        owner_id=account.user_id,  # <--- correction importante
+        owner_id=account.user_id,  # mapping correct
         balance=0
     )
     db.add(db_account)
