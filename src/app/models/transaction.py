@@ -1,13 +1,15 @@
 # src/app/models/transaction.py
-
-from sqlalchemy import Column, Integer, String
-from models.database import Base  # ✅ corrigé
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from src.app.database import Base
 
 class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True, index=True)
-    type = Column(String)
-    amount = Column(Integer)
-    origin = Column(String, nullable=True)
-    destination = Column(String, nullable=True)
+    type = Column(String, nullable=False)
+    amount = Column(Float, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    origin_account = Column(String, ForeignKey("accounts.id"), nullable=True)
+    destination_account = Column(String, ForeignKey("accounts.id"), nullable=True)
