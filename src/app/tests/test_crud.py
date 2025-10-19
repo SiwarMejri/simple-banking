@@ -11,7 +11,6 @@ from src.app.crud import (
 from src.app.schemas import UserCreate, AccountCreate
 from src.app.models import User, Account
 
-
 # ------------------------------------------------------------
 # 🔹 FIXTURE : base de données temporaire pour chaque test
 # ------------------------------------------------------------
@@ -20,7 +19,6 @@ def sample_user(db):
     """Crée un utilisateur en base pour les tests."""
     user_data = UserCreate(name="TestUser", email="testuser@example.com", password="1234")
     return create_user(db, user_data)
-
 
 # ------------------------------------------------------------
 # 🔹 TESTS SUR LA CRÉATION D’UTILISATEUR
@@ -33,14 +31,12 @@ def test_create_user_success(db):
     assert user.name == "Alice"
     assert user.email == "alice@test.com"
 
-
 def test_create_user_duplicate_email(db):
     """Vérifie que deux utilisateurs avec le même email provoquent une erreur."""
     user_data = UserCreate(name="Bob", email="bob@test.com", password="1234")
     create_user(db, user_data)
     with pytest.raises(IntegrityError):
         create_user(db, user_data)
-
 
 def test_get_user_existing(db):
     user_data = UserCreate(name="Carol", email="carol@test.com", password="abcd")
@@ -49,12 +45,10 @@ def test_get_user_existing(db):
     assert fetched is not None
     assert fetched.email == "carol@test.com"
 
-
 def test_get_user_not_found(db):
     """Cherche un utilisateur inexistant."""
     user = get_user(db, 9999)
     assert user is None
-
 
 # ------------------------------------------------------------
 # 🔹 TESTS SUR LA CRÉATION DE COMPTE
@@ -67,14 +61,12 @@ def test_create_account_success(db, sample_user):
     assert acc.owner_id == sample_user.id
     assert acc.balance == 0
 
-
 def test_create_account_duplicate_id(db, sample_user):
     """Crée deux comptes avec le même ID — provoque une erreur."""
     account_data = AccountCreate(id="acc002", user_id=sample_user.id)
     create_account(db, account_data)
     with pytest.raises(IntegrityError):
         create_account(db, account_data)
-
 
 def test_get_account_existing(db, sample_user):
     acc_data = AccountCreate(id="acc003", user_id=sample_user.id)
@@ -84,12 +76,10 @@ def test_get_account_existing(db, sample_user):
     assert fetched.id == "acc003"
     assert fetched.owner_id == sample_user.id
 
-
 def test_get_account_not_found(db):
     """Cherche un compte inexistant."""
     acc = get_account(db, "unknown")
     assert acc is None
-
 
 # ------------------------------------------------------------
 # 🔹 TESTS SUR LA MISE À JOUR DU SOLDE
@@ -100,14 +90,12 @@ def test_update_balance_positive(db, sample_user):
     updated = update_balance(db, acc, 150.0)
     assert updated.balance == 150.0
 
-
 def test_update_balance_negative(db, sample_user):
     acc_data = AccountCreate(id="acc005", user_id=sample_user.id)
     acc = create_account(db, acc_data)
     update_balance(db, acc, 200.0)
     updated = update_balance(db, acc, -50.0)
     assert updated.balance == 150.0
-
 
 def test_update_balance_zero(db, sample_user):
     """Vérifie qu'un montant nul ne modifie pas le solde."""
@@ -117,7 +105,6 @@ def test_update_balance_zero(db, sample_user):
     updated = update_balance(db, acc, 0.0)
     assert updated.balance == old_balance
 
-
 # ------------------------------------------------------------
 # 🔹 TESTS DE ROBUSTESSE (ERREURS)
 # ------------------------------------------------------------
@@ -126,7 +113,6 @@ def test_create_account_invalid_user(db):
     acc_data = AccountCreate(id="acc007", user_id=9999)
     with pytest.raises(IntegrityError):
         create_account(db, acc_data)
-
 
 def test_update_balance_invalid_account(db):
     """Test de mise à jour sur un compte qui n'est pas lié à la session."""
