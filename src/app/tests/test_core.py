@@ -1,19 +1,24 @@
 # tests/test_core.py
 import pytest
+from src.app.core import core
 from src.app.core.core import transfer_money, process_transaction
 from src.app.crud import create_user, create_account
 from src.app.schemas import UserCreate, AccountCreate
-from src.app.core import core
 from src.app.models.account import Account
 
+
+# ---------------- Fixtures ----------------
 @pytest.fixture
 def setup_accounts():
+    """Initialise deux comptes en mémoire avant chaque test."""
     core.reset_state()
     core.create_or_update_account("a1", 100)
     core.create_or_update_account("a2", 50)
     yield
     core.reset_state()
 
+
+# ---------------- Tests pour les fonctions en mémoire ----------------
 def test_create_or_update_account_new():
     core.reset_state()
     acc = core.create_or_update_account("u1", 200)
@@ -44,6 +49,8 @@ def test_transfer_between_accounts_insufficient(setup_accounts):
     origin, dest = core.transfer_between_accounts("a2", "a1", 200)
     assert origin is None and dest is None
 
+
+# ---------------- Tests pour la fonction transfer_money (base de données) ----------------
 def test_transfer_money_valid(mocker):
     db = mocker.Mock()
     sender = Account(id="a1", balance=100)
@@ -59,23 +66,35 @@ def test_transfer_money_insufficient_balance(mocker):
     with pytest.raises(ValueError, match="Solde insuffisant"):
         core.transfer_money(db, sender, receiver, 100)
 
-def test_transfer_money(db):
-    user1 = create_user(db, UserCreate(name="A", email="a@test.com", password="123"))
-    user2 = create_user(db, UserCreate(name="B", email="b@test.com", password="123"))
-    acc1 = create_account(db, AccountCreate(id="acc1", user_id=user1.id))
-    acc2 = create_account(db, AccountCreate(id="acc2", user_id=user2.id))
 
-    # Ajouter de l'argent sur le compte 1
-    acc1.balance = 500
-    db.commit()
+# ---------------- Tests pour la fonction process_transaction ----------------
+def test_process_transaction_success(mocker):
+    db = mocker.Mock()
+    sender = Account(id="1", balance=200)
+    receiver = Account(id="2", balance=100)
+    db.query().filter().first.side_effect = [sender, receiver]
 
-    # Transfert de 200
-    transfer_money(db, acc1, acc2, 200)
-    db.refresh(acc1)
-    db.refresh(acc2)
-    assert acc1.balance == 300
-    assert acc2.balance == 200
+    data = {"from_account": "1", "to_account": "2", "amount": 50}
+    result = core.process_transaction(db, data)
+    assert result["status"] == "success"
+    assert sender.balance == 150
+    assert receiver.balance == 150
 
-    # Test transfert > solde
-    with pytest.raises(ValueError):
-        transfer_money(db, acc1, acc2, 400)
+def test_process_transaction_insufficient_balance(mocker):
+    db = mocker.Mock()
+    sender = Account(id="1", balance=10)
+    receiver = Account(id="2", balance=100)
+    db.query().filter().first.side_effect = [sender, receiver]
+
+    data = {"from_account": "1", "to_account": "2", "amount": 100}
+    result = core.process_transaction(db, data)
+    assert result["status"] == "failed"
+    assert "Solde insuffisant" in result["reason"]
+
+def test_process_transaction_invalid_accounts(mocker):
+    db = mocker.Mock()
+    db.query().filter().first.side_effect = [None, None]
+    data = {"from_account": "x", "to_account": "y", "amount": 10}
+    result = core.process_transaction(db, data)
+    assert result["status"] == "failed"
+    assert "n'existe pas" in result["reason"]
