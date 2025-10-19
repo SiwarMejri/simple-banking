@@ -13,4 +13,4 @@ class User(Base):
     password = Column(String, nullable=False)
 
     # Relation vers Account
-   accounts = relationship("src.app.models.account.Account", back_populates="owner", cascade="all, delete")
+   accounts = relationship("Account", back_populates="owner")
