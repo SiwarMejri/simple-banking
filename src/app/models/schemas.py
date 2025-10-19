@@ -1,27 +1,42 @@
 # src/app/models/schemas.py
-
 from pydantic import BaseModel
-from typing import Optional
-from sqlalchemy import Column, Integer, String
-from models.database import Base  # Assure-toi que Base est bien défini dans database.py
+from datetime import datetime
+from typing import Optional, List
 
-# --- Schéma Pydantic (pour FastAPI) ---
-class TransactionSchema(BaseModel):
+# -------------------- USERS --------------------
+class UserBase(BaseModel):
+    name: str
+    email: str
+
+class UserCreate(UserBase):
+    password: str
+
+class User(UserBase):
+    id: int
+    class Config:
+        orm_mode = True
+
+# -------------------- ACCOUNTS --------------------
+class AccountBase(BaseModel):
+    id: str
+    balance: float = 0
+
+class AccountCreate(AccountBase):
+    user_id: int
+
+class Account(AccountBase):
+    owner_id: Optional[int]
+    class Config:
+        orm_mode = True
+
+# -------------------- TRANSACTIONS --------------------
+class TransactionCreate(BaseModel):
     type: str
-    amount: int
+    amount: float
     origin: Optional[str] = None
     destination: Optional[str] = None
 
-    class Config:
-        orm_mode = True  # Permet la compatibilité avec SQLAlchemy
-
-# --- Modèle SQLAlchemy (pour la DB) ---
-class Transaction(Base):
-    __tablename__ = "transactions"
-    __table_args__ = {"extend_existing": True}  # Evite les conflits si la table existe déjà
-
-    id = Column(Integer, primary_key=True, index=True)
-    type = Column(String(length=50), nullable=False)  # Ajout d'une longueur pour String
-    amount = Column(Integer, nullable=False)
-    origin = Column(String(length=100), nullable=True)
-    destination = Column(String(length=100), nullable=True)
+class TransactionResponse(BaseModel):
+    type: str
+    status: Optional[str] = "success"
+    timestamp: datetime = datetime.now()
