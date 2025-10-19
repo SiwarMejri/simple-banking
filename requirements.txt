@@ -43,3 +43,5 @@ prometheus-fastapi-instrumentator==5.9.1
 python-multipart==0.0.8
 cryptography==41.0.0
 python-dotenv
+pytest-mock==3.14.0
+
