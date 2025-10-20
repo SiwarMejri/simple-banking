@@ -1,4 +1,4 @@
-import pytest
+# tests/test_dependencies.py
 from src.app.dependencies import get_current_user
 
 def test_get_current_user():
