@@ -15,18 +15,18 @@ def reset_state():
 
     # ⚡ Pour éviter l'erreur SQLite "index already exists"
     if 'sqlite' in str(engine.url):
-        with engine.connect() as conn:
-            # Supprime l'index s'il existe
+        with engine.begin() as conn:  # begin() = commit automatique
             try:
-                conn.execute(text('DROP INDEX IF EXISTS ix_users_id'))
-                conn.commit()
+                # Supprime tous les index problématiques avant drop
+                conn.execute(text("DROP INDEX IF EXISTS ix_users_id"))
+                conn.execute(text("DROP INDEX IF EXISTS ix_transactions_id"))
             except OperationalError:
                 pass
 
             # Supprime toutes les tables
             Base.metadata.drop_all(bind=conn)
 
-            # ⚠️ Crée les tables sans recréer d'index automatiquement
+            # Recrée toutes les tables (avec checkfirst=True pour éviter doublons)
             for table in Base.metadata.sorted_tables:
                 table.create(bind=conn, checkfirst=True)
 
@@ -103,3 +103,4 @@ def process_transaction(db, transaction_data: dict):
         }
     except Exception as e:
         return {"status": "failed", "reason": str(e)}
+
