@@ -14,15 +14,14 @@ from app.models.base import Base
 from app.models.database import SessionLocal, engine
 from app.core import core
 
-
 # ------------------ Base de données de test ------------------
 @pytest.fixture(scope="function")
 def db():
     """Fixture pour initialiser et nettoyer la base avant/après chaque test"""
     session = SessionLocal()
     yield session
+    session.rollback()  # Annule toute transaction ouverte
     session.close()
-
 
 # ------------------ Client TestClient global ------------------
 @pytest.fixture(scope="session")
@@ -30,35 +29,24 @@ def client():
     """Client de test FastAPI réutilisable pour toute la session"""
     return TestClient(app)
 
-
 # ------------------ Réinitialisation automatique avant chaque test ------------------
 @pytest.fixture(scope="function", autouse=True)
 def reset_db():
     """
     Réinitialise complètement la base avant chaque test :
-    - Supprime toutes les tables existantes
+    - Supprime toutes les tables et index existants
     - Recrée le schéma vide
     - Réinitialise l’état mémoire du module core
     """
-    # 🧹 Avant chaque test : on nettoie d'abord l'index SQLite s'il existe
     if 'sqlite' in str(engine.url):
         with engine.begin() as conn:
             try:
-                conn.execute(text('DROP INDEX IF EXISTS ix_users_id'))
+                # Supprime toutes les tables (et leurs index associés)
+                Base.metadata.drop_all(bind=conn)
             except OperationalError:
                 pass
 
-    # Appel normal à ta fonction actuelle
+    # Appel à la réinitialisation
     core.reset_state()
 
     yield  # Exécution du test
-
-    # 🧹 Après chaque test : même logique
-    if 'sqlite' in str(engine.url):
-        with engine.begin() as conn:
-            try:
-                conn.execute(text('DROP INDEX IF EXISTS ix_users_id'))
-            except OperationalError:
-                pass
-
-    core.reset_state()
