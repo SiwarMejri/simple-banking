@@ -41,7 +41,7 @@ pipeline {
                         script: """
                             set -e
                             . ${VENV_DIR}/bin/activate
-                            export DATABASE_URL=""
+                            # DATABASE_URL est géré par conftest.py, on ne l'exporte pas
                             export PYTHONPATH=$WORKSPACE/src/app
                             pytest --disable-warnings --cov=src/app --cov-report=xml:coverage.xml -v | tee pytest-output.log
                         """,
