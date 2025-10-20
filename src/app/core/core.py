@@ -13,22 +13,15 @@ def reset_state():
     """Réinitialise les comptes en mémoire et la base de données."""
     accounts.clear()
 
-    # ⚡ Pour éviter l'erreur SQLite "index already exists"
-    if 'sqlite' in str(engine.url):
-        with engine.begin() as conn:  # begin() = commit automatique
-            try:
-                # Supprime tous les index problématiques avant drop
-                conn.execute(text("DROP INDEX IF EXISTS ix_users_id"))
-                conn.execute(text("DROP INDEX IF EXISTS ix_transactions_id"))
-            except OperationalError:
-                pass
-
-            # Supprime toutes les tables
+    with engine.begin() as conn:
+        try:
+            # Supprime toutes les tables et leurs index associés
             Base.metadata.drop_all(bind=conn)
+        except OperationalError:
+            pass
 
-            # Recrée toutes les tables (avec checkfirst=True pour éviter doublons)
-            for table in Base.metadata.sorted_tables:
-                table.create(bind=conn, checkfirst=True)
+        # Recrée toutes les tables
+        Base.metadata.create_all(bind=conn)
 
 # ---------------- Fonctions principales ----------------
 def get_account_balance(account_id: str) -> Optional[Account]:
@@ -63,7 +56,9 @@ def transfer_between_accounts(origin: str, destination: str, amount: int):
 
 # ---------------- Fonctions utilisées en base de données ----------------
 def transfer_money(db, sender_account: Account, receiver_account: Account, amount: int):
-    """Transfère de l'argent entre deux comptes persistés en base."""
+    """Transfère de l'argent entre deuxūra
+
+ comptes persistés en base."""
     if sender_account.balance < amount:
         raise ValueError("Solde insuffisant")
     sender_account.balance -= amount
@@ -103,4 +98,3 @@ def process_transaction(db, transaction_data: dict):
         }
     except Exception as e:
         return {"status": "failed", "reason": str(e)}
-
