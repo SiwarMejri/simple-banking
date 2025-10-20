@@ -2,6 +2,7 @@
 from typing import Optional, Dict
 from src.app.models.account import Account
 from src.app.models.database import Base, engine
+from sqlalchemy.exc import OperationalError
 
 # ---------------- Stockage en mémoire ----------------
 accounts: Dict[str, Account] = {}
@@ -11,6 +12,16 @@ accounts: Dict[str, Account] = {}
 def reset_state():
     """Réinitialise les comptes en mémoire et la base de données."""
     accounts.clear()
+
+    # ⚡ Pour éviter l'erreur SQLite "index already exists"
+    if 'sqlite' in str(engine.url):
+        with engine.connect() as conn:
+            try:
+                conn.execute('DROP INDEX IF EXISTS ix_users_id')
+                conn.commit()
+            except OperationalError:
+                pass  # Ignore si l'index n'existe pas encore
+
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
 
@@ -93,3 +104,4 @@ def process_transaction(db, transaction_data: dict):
         }
     except Exception as e:
         return {"status": "failed", "reason": str(e)}
+
