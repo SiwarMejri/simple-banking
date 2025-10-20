@@ -15,11 +15,9 @@ from app.core import core
 @pytest.fixture(scope="function")
 def db():
     """Fixture pour initialiser et nettoyer la base avant/après chaque test"""
-    Base.metadata.create_all(bind=engine)
     session = SessionLocal()
     yield session
     session.close()
-    Base.metadata.drop_all(bind=engine)
 
 # ------------------ Client TestClient global ------------------
 @pytest.fixture(scope="session")
@@ -39,13 +37,10 @@ def reset_db():
     - Recrée le schéma vide
     - Réinitialise l’état mémoire du module core
     """
-    # Avant chaque test
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    # Avant chaque test : core.reset_state() fait déjà drop/create
     core.reset_state()
 
     yield  # Ici le test s'exécute
 
     # Après chaque test : nettoyage pour s'assurer qu'aucune donnée ne persiste
-    Base.metadata.drop_all(bind=engine)
     core.reset_state()
