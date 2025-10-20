@@ -12,25 +12,40 @@ from app.models.base import Base
 from app.models.database import SessionLocal, engine
 from app.core import core
 
-# ---------------- Fixture pour la session de test ----------------
-@pytest.fixture(scope="session")
-def client():
-    """Client FastAPI réutilisable pour toute la session."""
-    return TestClient(app)
-
-# ---------------- Fixture pour la base de données ----------------
 @pytest.fixture(scope="function")
 def db():
-    """Initialise et nettoie la base avant/après chaque test."""
+    """Fixture pour initialiser et nettoyer la base avant/après chaque test"""
     Base.metadata.create_all(bind=engine)
     session = SessionLocal()
     yield session
     session.close()
     Base.metadata.drop_all(bind=engine)
 
-# ---------------- Fixture pour réinitialiser la base avant chaque test ----------------
-@pytest.fixture(autouse=True)
-def setup_test_db():
-    """Active la base en mémoire et réinitialise avant chaque test."""
-    os.environ["TESTING"] = "1"
+# ------------------ Client TestClient global ------------------
+@pytest.fixture(scope="session")
+def client():
+    """
+    Client de test FastAPI réutilisable pour toute la session.
+    Utile pour éviter de recréer le client à chaque test.
+    """
+    return TestClient(app)
+
+# ------------------ Fixture pour réinitialiser la base avant chaque test ------------------
+@pytest.fixture(scope="function", autouse=True)
+def reset_db():
+    """
+    Réinitialise complètement la base avant chaque test :
+    - Supprime toutes les tables existantes
+    - Recrée le schéma vide
+    - Réinitialise l’état mémoire du module core
+    """
+    # Avant chaque test
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
+    core.reset_state()
+
+    yield  # Ici le test s'exécute
+
+    # Après chaque test : nettoyage pour s'assurer qu'aucune donnée ne persiste
+    Base.metadata.drop_all(bind=engine)
     core.reset_state()
