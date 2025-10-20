@@ -1,8 +1,7 @@
 # src/app/models/account.py
 from sqlalchemy import Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import relationship
-from src.app.database import Base
-
+from src.app.models.database import Base
 
 class Account(Base):
     __tablename__ = "accounts"
@@ -15,9 +14,17 @@ class Account(Base):
     # Relation vers User
     owner = relationship("User", back_populates="accounts")
 
-    # Relation vers Transaction
-    outgoing_transactions = relationship("Transaction", foreign_keys="[Transaction.origin_account]", back_populates="origin_acc")
-    incoming_transactions = relationship("Transaction", foreign_keys="[Transaction.destination_account]", back_populates="dest_acc")
+    # Relations vers Transaction
+    outgoing_transactions = relationship(
+        "Transaction",
+        foreign_keys="[Transaction.origin_account]",
+        back_populates="origin_acc"
+    )
+    incoming_transactions = relationship(
+        "Transaction",
+        foreign_keys="[Transaction.destination_account]",
+        back_populates="dest_acc"
+    )
 
     def __repr__(self):
         return f"<Account(id='{self.id}', balance={self.balance})>"
