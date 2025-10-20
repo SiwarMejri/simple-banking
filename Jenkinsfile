@@ -6,7 +6,7 @@ pipeline {
         PYTHONPATH    = "${WORKSPACE}/src/app"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test"
-        DATABASE_URL  = "sqlite:///./test_banking.db"
+        #DATABASE_URL  = "sqlite:///./test_banking.db"
         IMAGE_NAME    = "siwarmejri/simple-banking"
         IMAGE_TAG     = "latest"
         SONAR_TOKEN   = credentials('sonar-token')
@@ -42,7 +42,7 @@ pipeline {
                         script: """
                             set -e
                             . ${VENV_DIR}/bin/activate
-                            export DATABASE_URL="${DATABASE_URL}"
+                            export DATABASE_URL=""
                             export PYTHONPATH=$WORKSPACE/src/app
                             pytest --disable-warnings --cov=src/app --cov-report=xml:coverage.xml -v | tee pytest-output.log
                         """,
