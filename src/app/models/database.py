@@ -7,4 +7,4 @@ DATABASE_URL = "sqlite:///./banking.db"  # ou PostgreSQL selon ton ENV
 
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()  # ⚠️ Cette ligne est essentielle
+Base = declarative_base()  # ⚠️ Base unique pour tous les modèles
