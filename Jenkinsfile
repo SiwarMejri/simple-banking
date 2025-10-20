@@ -68,13 +68,16 @@ pipeline {
                         def scannerHome = tool 'sonar-scanner'
                         sh """
                             . ${VENV_DIR}/bin/activate
+                            echo "📄 Vérification du fichier coverage.xml..."
+                            ls -l ${WORKSPACE}/coverage.xml || echo "⚠️ coverage.xml introuvable !"
+
                             ${scannerHome}/bin/sonar-scanner \
                               -Dsonar.projectKey=simple-banking \
                               -Dsonar.sources=src/app \
                               -Dsonar.exclusions=src/app/tests/** \
                               -Dsonar.tests=src/app/tests \
                               -Dsonar.python.version=3.10 \
-                              -Dsonar.python.coverage.reportPaths=coverage.xml \
+                              -Dsonar.python.coverage.reportPaths=${WORKSPACE}/coverage.xml \
                               -Dsonar.host.url=$SONAR_HOST_URL \
                               -Dsonar.token=$SONAR_TOKEN
                         """
@@ -84,37 +87,32 @@ pipeline {
         }
 
         stage('Vérification Quality Gate') {
-    steps {
-        script {
-            try {
-                timeout(time: 10, unit: 'MINUTES') {
-                    def qg = waitForQualityGate()
-                    
-                    // Affiche toutes les informations du Quality Gate
-                    echo "🔍 Résultat complet du Quality Gate : ${qg.toString()}"
-                    
-                    // Affiche les conditions détaillées
-                    if (qg.conditions) {
-                        qg.conditions.each { cond ->
-                            echo "Metric: ${cond.metric}, Status: ${cond.status}, Value: ${cond.value}, Threshold: ${cond.errorThreshold}"
+            steps {
+                script {
+                    try {
+                        timeout(time: 10, unit: 'MINUTES') {
+                            def qg = waitForQualityGate()
+                            echo "🔍 Résultat complet du Quality Gate : ${qg.toString()}"
+
+                            if (qg.conditions) {
+                                qg.conditions.each { cond ->
+                                    echo "Metric: ${cond.metric}, Status: ${cond.status}, Value: ${cond.value}, Threshold: ${cond.errorThreshold}"
+                                }
+                            }
+
+                            if (qg.status != 'OK') {
+                                echo "⚠️ Quality Gate échoué: ${qg.status}"
+                                error("❌ Pipeline échoué à cause du Quality Gate")
+                            } else {
+                                echo "✅ Quality Gate réussi"
+                            }
                         }
-                    }
-                    
-                    // Vérifie le statut global
-                    if (qg.status != 'OK') {
-                        echo "⚠️ Quality Gate échoué: ${qg.status}"
-                        error("❌ Pipeline échoué à cause du Quality Gate")
-                    } else {
-                        echo "✅ Quality Gate réussi"
+                    } catch (err) {
+                        echo "⚠️ Impossible de récupérer le Quality Gate ou erreur: ${err}"
                     }
                 }
-            } catch (err) {
-                echo "⚠️ Impossible de récupérer le Quality Gate ou erreur: ${err}"
             }
         }
-    }
-}
-
 
         stage('Build Docker') {
             steps {
@@ -131,7 +129,7 @@ pipeline {
                         echo "📂 Scan du code source avec Trivy (FS)..."
                         trivy fs --scanners vuln --exit-code 0 --format table --output trivy-report.txt --ignore-unfixed --timeout 5m .
                         trivy fs --scanners vuln --exit-code 0 --format json  --output trivy-report.json --ignore-unfixed --timeout 5m .
-                        
+
                         echo "🐳 Scan de l'image Docker ${IMAGE_NAME}:${IMAGE_TAG}..."
                         trivy image --scanners vuln --exit-code 0 --format table --output trivy-image-report.txt --ignore-unfixed --timeout 10m ${IMAGE_NAME}:${IMAGE_TAG}
                         trivy image --scanners vuln --exit-code 0 --format json  --output trivy-image-report.json --ignore-unfixed --timeout 10m ${IMAGE_NAME}:${IMAGE_TAG}
