@@ -16,14 +16,19 @@ def reset_state():
     # ⚡ Pour éviter l'erreur SQLite "index already exists"
     if 'sqlite' in str(engine.url):
         with engine.connect() as conn:
+            # Supprime l'index s'il existe
             try:
                 conn.execute(text('DROP INDEX IF EXISTS ix_users_id'))
                 conn.commit()
             except OperationalError:
-                pass  # Ignore si l'index n'existe pas encore
+                pass
 
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+            # Supprime toutes les tables
+            Base.metadata.drop_all(bind=conn)
+
+            # ⚠️ Crée les tables sans recréer d'index automatiquement
+            for table in Base.metadata.sorted_tables:
+                table.create(bind=conn, checkfirst=True)
 
 # ---------------- Fonctions principales ----------------
 def get_account_balance(account_id: str) -> Optional[Account]:
