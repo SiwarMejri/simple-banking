@@ -1,11 +1,11 @@
 pipeline {
     agent any
-// DATABASE_URL  = "sqlite:///./test_banking.db"
     environment {
         VENV_DIR      = "${WORKSPACE}/venv"
         PYTHONPATH    = "${WORKSPACE}/src/app"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test"
+        DATABASE_URL  = "sqlite:///./test_banking.db"
         IMAGE_NAME    = "siwarmejri/simple-banking"
         IMAGE_TAG     = "latest"
         SONAR_TOKEN   = credentials('sonar-token')
@@ -41,7 +41,7 @@ pipeline {
                         script: """
                             set -e
                             . ${VENV_DIR}/bin/activate
-                            # DATABASE_URL est géré par conftest.py, on ne l'exporte pas
+                            export TESTING=1
                             export PYTHONPATH=$WORKSPACE/src/app
                             pytest --disable-warnings --cov=src/app --cov-report=xml:coverage.xml -v | tee pytest-output.log
                         """,
