@@ -1,9 +1,10 @@
 # src/app/core/core.py
 from typing import Optional, Dict
-from src.app.models.account import Account
-from src.app.models.database import Base, engine
 from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
+from src.app.models.account import Account
+from src.app.models.database import engine
+from src.app.models.base import Base  # Import correct
 
 # ---------------- Stockage en mémoire ----------------
 accounts: Dict[str, Account] = {}
@@ -13,15 +14,21 @@ def reset_state():
     """Réinitialise les comptes en mémoire et la base de données."""
     accounts.clear()
 
-    with engine.begin() as conn:
-        try:
-            # Supprime toutes les tables et leurs index associés
-            Base.metadata.drop_all(bind=conn)
-        except OperationalError:
-            pass
+    # ⚡ Pour éviter l'erreur SQLite "index already exists"
+    if 'sqlite' in str(engine.url):
+        with engine.begin() as conn:  # begin() = commit automatique
+            try:
+                conn.execute(text("DROP INDEX IF EXISTS ix_users_id"))
+                conn.execute(text("DROP INDEX IF EXISTS ix_transactions_id"))
+            except OperationalError:
+                pass
 
-        # Recrée toutes les tables
-        Base.metadata.create_all(bind=conn)
+            # Supprime toutes les tables
+            Base.metadata.drop_all(bind=conn)
+
+            # Recrée les tables sans dupliquer les index
+            for table in Base.metadata.sorted_tables:
+                table.create(bind=conn, checkfirst=True)
 
 # ---------------- Fonctions principales ----------------
 def get_account_balance(account_id: str) -> Optional[Account]:
@@ -54,11 +61,9 @@ def transfer_between_accounts(origin: str, destination: str, amount: int):
     accounts[destination].balance += amount
     return accounts[origin], accounts[destination]
 
-# ---------------- Fonctions utilisées en base de données ----------------
+# ---------------- Fonctions base de données ----------------
 def transfer_money(db, sender_account: Account, receiver_account: Account, amount: int):
-    """Transfère de l'argent entre deuxūra
-
- comptes persistés en base."""
+    """Transfère de l'argent entre deux comptes persistés en base."""
     if sender_account.balance < amount:
         raise ValueError("Solde insuffisant")
     sender_account.balance -= amount
@@ -66,14 +71,8 @@ def transfer_money(db, sender_account: Account, receiver_account: Account, amoun
     db.commit()
     return True
 
-# ---------------- Nouvelle fonction : process_transaction ----------------
 def process_transaction(db, transaction_data: dict):
-    """
-    Traite une transaction générique :
-    - Vérifie les champs requis
-    - Appelle transfer_money()
-    - Retourne un message de succès ou d'erreur
-    """
+    """Traite une transaction générique."""
     try:
         from_account_id = transaction_data.get("from_account")
         to_account_id = transaction_data.get("to_account")
