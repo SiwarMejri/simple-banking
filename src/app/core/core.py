@@ -1,8 +1,8 @@
 # src/app/core/core.py
 from typing import Optional, Dict
+from sqlalchemy import inspect, text
 from src.app.models.account import Account
 from src.app.models.database import Base, engine
-from sqlalchemy import inspect
 
 # ---------------- Stockage en mémoire ----------------
 accounts: Dict[str, Account] = {}
@@ -12,15 +12,17 @@ def reset_state():
     """Réinitialise les comptes en mémoire et la base de données."""
     accounts.clear()
 
-    # Suppression sécurisée des indexes existants pour éviter conflits SQLite
     inspector = inspect(engine)
-    for table_name in inspector.get_table_names():
-        for idx in inspector.get_indexes(table_name):
-            engine.execute(f"DROP INDEX IF EXISTS {idx['name']}")
 
-    # Réinitialisation complète des tables
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    # 🔥 Suppression sécurisée des indexes existants pour SQLite (SQLAlchemy 2.x)
+    with engine.begin() as conn:
+        for table_name in inspector.get_table_names():
+            for idx in inspector.get_indexes(table_name):
+                conn.execute(text(f"DROP INDEX IF EXISTS {idx['name']}"))
+
+        # Réinitialisation complète des tables
+        Base.metadata.drop_all(bind=conn)
+        Base.metadata.create_all(bind=conn)
 
 # ---------------- Fonctions principales ----------------
 def get_account_balance(account_id: str) -> Optional[Account]:
