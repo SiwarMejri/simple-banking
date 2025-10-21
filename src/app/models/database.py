@@ -9,9 +9,8 @@ import tempfile
 TESTING = os.getenv("TESTING", "0") == "1"
 
 if TESTING:
-    # ⚡ Base temporaire (unique pour chaque test)
-    tmpfile = tempfile.NamedTemporaryFile(delete=False, suffix=".db")
-    DATABASE_URL = f"sqlite:///{tmpfile.name}"
+    # ⚡ Base en mémoire (DB volatile et propre à chaque session de test)
+    DATABASE_URL = "sqlite:///:memory:"
 else:
     DATABASE_URL = "sqlite:///./banking.db"
 
