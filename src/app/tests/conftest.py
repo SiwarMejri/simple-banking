@@ -1,36 +1,40 @@
 # src/app/tests/conftest.py
-import os
 import sys
+import os
 import pytest
 from fastapi.testclient import TestClient
-from src.app.core import core
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
-# Ajout du chemin src pour les imports
+# Ajoute le dossier src au path Python
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-# ⚡ Active le mode test
-os.environ["TESTING"] = "1"
-
 from app.main import app
-from app.models.database import SessionLocal
+from app.models.base import Base
+from app.core import core
+
 
 @pytest.fixture(scope="function")
 def db():
-    """Base temporaire isolée pour chaque test"""
-    core.reset_state()  # Reset complet DB + comptes avant test
-    session = SessionLocal()
+    """Fixture pour initialiser une base SQLite en mémoire avant chaque test."""
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    Base.metadata.create_all(bind=engine)
+    session = TestingSessionLocal()
     yield session
     session.close()
-    core.reset_state()  # Reset complet après test
+    Base.metadata.drop_all(bind=engine)
+
 
 @pytest.fixture(scope="session")
 def client():
-    """Client FastAPI global pour toute la session"""
+    """Client de test FastAPI réutilisable pour toute la session."""
     return TestClient(app)
 
-@pytest.fixture(autouse=True, scope="function")
-def reset_env():
-    """Reset complet des comptes en mémoire avant et après chaque test"""
-    core.accounts.clear()
+
+@pytest.fixture(scope="function", autouse=True)
+def reset_db():
+    """Réinitialise complètement la base avant chaque test."""
+    core.reset_state()
     yield
-    core.accounts.clear()
+    core.reset_state()
