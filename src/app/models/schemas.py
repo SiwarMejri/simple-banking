@@ -1,42 +1,61 @@
-# src/app/schemas.py
-from pydantic import BaseModel
-from datetime import datetime
+from pydantic import BaseModel, Field, validator
 from typing import Optional, List
+from enum import Enum
 
-# -------------------- USERS --------------------
+class TransactionType(str, Enum):
+    DEPOSIT = "deposit"
+    WITHDRAW = "withdraw"
+    TRANSFER = "transfer"
+
 class UserBase(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1)
     email: str
 
 class UserCreate(UserBase):
-    password: str
+    password: str = Field(..., min_length=1)
 
-class User(UserBase):
+class UserModel(UserBase):
     id: int
-    class Config:
-        orm_mode = True
+    accounts: List["AccountSchema"] = []
 
-# -------------------- ACCOUNTS --------------------
+    class Config:
+        from_attributes = True
+
 class AccountBase(BaseModel):
     id: str
-    balance: float = 0
+    balance: float
 
 class AccountCreate(AccountBase):
-    user_id: int
+    user_id: int = Field(..., gt=0)  # Doit être > 0
 
-class Account(AccountBase):
-    owner_id: Optional[int]
+class AccountSchema(AccountBase):
+    owner_id: int = Field(..., gt=0)  # Doit être requis et > 0
+
     class Config:
-        orm_mode = True
+        from_attributes = True
 
-# -------------------- TRANSACTIONS --------------------
 class TransactionCreate(BaseModel):
-    type: str
-    amount: float
+    type: TransactionType  # Utiliser l'Enum pour validation
+    amount: float = Field(..., gt=0)  # Doit être > 0
     origin: Optional[str] = None
     destination: Optional[str] = None
 
+    @validator('type')
+    def validate_type(cls, v):
+        if v not in ['deposit', 'withdraw', 'transfer']:
+            raise ValueError('Type must be deposit, withdraw, or transfer')
+        return v
+
+    @validator('amount')
+    def validate_amount(cls, v):
+        if v <= 0:
+            raise ValueError('Amount must be greater than 0')
+        return v
+
 class TransactionResponse(BaseModel):
     type: str
-    status: Optional[str] = "success"
-    timestamp: datetime = datetime.now()
+    origin: Optional[AccountSchema] = None
+    destination: Optional[AccountSchema] = None
+
+# Mettre à jour les références
+UserModel.update_forward_refs()
