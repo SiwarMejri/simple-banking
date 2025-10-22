@@ -3,8 +3,9 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from src.app.database import Base
 
-class TransactionModel(Base):  # Doit s'appeler TransactionModel
+class TransactionModel(Base):
     __tablename__ = "transactions"
+    __table_args__ = {'extend_existing': True}  # Ajoutez cette ligne
 
     id = Column(Integer, primary_key=True, index=True)
     type = Column(String)  # e.g., "deposit", "withdraw", "transfer"
