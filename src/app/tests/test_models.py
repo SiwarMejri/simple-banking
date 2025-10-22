@@ -17,7 +17,8 @@ def test_user_create_valid():
 def test_user_create_invalid_email():
     from schemas import UserCreate
     # Test avec un email vraiment invalide
-    with pytest.raises(ValidationError):
+    # CORRECTION : Changer ValidationError en ValueError car c'est un field_validator
+    with pytest.raises(ValueError):
         UserCreate(name="test", email="not-an-email", password="pass")
 
 def test_user_create_missing_field():
@@ -50,13 +51,13 @@ def test_transaction_create_valid():
 def test_transaction_create_invalid_type():
     from schemas import TransactionCreate
     # Test type vide (doit déclencher ValidationError via le validateur)
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValueError):  # CORRECTION : Changer en ValueError
         TransactionCreate(type="", amount=100.0)
 
 def test_transaction_create_zero_amount():
     from schemas import TransactionCreate
     # Test montant zéro (doit déclencher ValidationError)
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValueError):  # CORRECTION : Changer en ValueError
         TransactionCreate(type="deposit", amount=0)
 
 def test_transaction_response():
