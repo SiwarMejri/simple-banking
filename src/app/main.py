@@ -14,7 +14,7 @@ from core import core
 import crud
 from models.user import User
 from models.account import Account
-from schemas import TransactionResponse, AccountCreate, Account as AccountSchema
+from schemas import TransactionResponse, AccountCreate, AccountSchema  # <-- Import corrigé
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO,
@@ -39,7 +39,6 @@ def get_db():
 
 # ---------------- Prometheus ----------------
 def get_or_create_counter(name: str, description: str):
-    # note: using private registry internals to check existing collectors
     if name in REGISTRY._names_to_collectors:
         return REGISTRY._names_to_collectors[name]
     return Counter(name, description)
@@ -56,20 +55,16 @@ instrumentator.instrument(app).expose(app)
 async def root():
     return {"message": "Hello, Simple Banking API!"}
 
-# Open endpoint (no authentication)
 @app.get("/protected")
 async def protected():
-    # Previously returned authenticated user info; now public/open endpoint
     return {"message": "Hello, endpoint accessible librement (auth supprimée)."}
 
 @app.get("/users/me")
 def read_users_me():
-    # Auth removed — keep route but return anonymous/public info
     return {"user": None}
 
 @app.get("/create_user", response_class=HTMLResponse)
 async def create_user_form(request: Request):
-    # Form for creating users — accessible without permissions now
     return templates.TemplateResponse("create_user.html", {"request": request})
 
 @app.post("/create_user")
@@ -92,12 +87,10 @@ async def create_user(email: str = Form(...), password: str = Form(...)):
 # ---------------- Accounts ----------------
 @app.post("/accounts/", response_model=AccountSchema)
 def create_account(account: AccountCreate, db: Session = Depends(get_db)):
-    # No permission checks — directly call CRUD
     return crud.create_account(db, account)
 
 @app.get("/balance")
 def get_balance(account_id: str):
-    # No authentication required
     account = core.get_account_balance(account_id)
     if account is None:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -105,7 +98,6 @@ def get_balance(account_id: str):
 
 @app.post("/reset", status_code=200)
 def reset_state():
-    # Open endpoint to reset state (no auth)
     core.reset_state()
     api_reset_counter.inc()
     return {"message": "API reset executed"}
@@ -122,10 +114,18 @@ async def process_transaction(transaction: TransactionRequest):
     transaction_processed_counter.inc()
     if transaction.type == "deposit":
         account = core.create_or_update_account(transaction.destination, transaction.amount)
-        return TransactionResponse(type="deposit", origin=None, destination=AccountSchema(id=account.id, balance=account.balance))
+        return TransactionResponse(
+            type="deposit",
+            origin=None,
+            destination=AccountSchema(id=account.id, balance=account.balance)
+        )
     elif transaction.type == "withdraw":
         account = core.withdraw_from_account(transaction.origin, transaction.amount)
-        return TransactionResponse(type="withdraw", origin=AccountSchema(id=account.id, balance=account.balance), destination=None)
+        return TransactionResponse(
+            type="withdraw",
+            origin=AccountSchema(id=account.id, balance=account.balance),
+            destination=None
+        )
     elif transaction.type == "transfer":
         origin, destination = core.transfer_between_accounts(transaction.origin, transaction.destination, transaction.amount)
         return TransactionResponse(
