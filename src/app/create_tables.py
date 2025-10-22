@@ -1,8 +1,7 @@
-from src.app.models.database import engine
-from src.app.models.base import Base
+from models.database import engine
+from models.base import Base
 from sqlalchemy import inspect  # Import pour l'inspection SQLAlchemy
-# Importer les modèles pour s'assurer qu'ils sont enregistrés
-from src.app.models import user, account, transaction
+from models import user, account, transaction  # Correction des imports : suppression de src.app
 
 def create_all_tables():
     """Crée toutes les tables dans la base de données."""
