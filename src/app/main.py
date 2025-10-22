@@ -108,10 +108,12 @@ def reset_state():
 def process_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
     transaction_processed_counter.inc()
 
-    # Vérifier si les comptes existent pour dépôt et retrait
-    if transaction.type in ["deposit", "withdraw"]:
-        account_id = transaction.destination if transaction.type == "deposit" else transaction.origin
-        if account_id not in core.accounts:
+    # Vérifier si les comptes existent UNIQUEMENT pour retrait et transfert (pas pour dépôt, qui crée le compte)
+    if transaction.type == "withdraw":
+        if transaction.origin not in core.accounts:
+            raise HTTPException(status_code=404, detail="Account not found")
+    elif transaction.type == "transfer":
+        if transaction.origin not in core.accounts or transaction.destination not in core.accounts:
             raise HTTPException(status_code=404, detail="Account not found")
 
     # Logique des transactions
