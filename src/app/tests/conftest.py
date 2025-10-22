@@ -1,4 +1,3 @@
-# src/app/tests/conftest.py
 import sys
 import os
 import pytest
@@ -9,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 # Ajoute le dossier src au path Python
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from app.main import app  # Import direct depuis main.py pour éviter les conflits
+from main import app  # Correction de l'import : directement depuis main.py
 from app.models.base import Base
 from app.models.database import engine  # Ajout de l'import pour engine
 from app.core import core
