@@ -11,10 +11,8 @@ class Account(Base):
     balance = Column(Float, default=0.0)
     owner_id = Column(Integer, ForeignKey("users.id"))
 
-    # Relation vers User
+    # Relations avec chaînes pour éviter les conflits d'imports
     owner = relationship("User", back_populates="accounts")
-
-    # Relations vers Transaction
     outgoing_transactions = relationship(
         "Transaction",
         foreign_keys="[Transaction.origin_account]",
