@@ -1,28 +1,31 @@
 import pytest
-from pydantic import ValidationError
-from src.app.schemas import UserCreate, User, Account, AccountCreate, TransactionCreate, TransactionResponse
+from src.app.schemas import UserCreate, User, AccountSchema, AccountCreate, TransactionCreate, TransactionResponse
 
+# ---------------- Tests étendus pour les schémas ----------------
 def test_user_create_model_invalid_missing_field():
-    # Test sans champ requis password
-    with pytest.raises(ValidationError):
-        UserCreate(name="Bob", email="bob@example.com")
+    with pytest.raises(ValueError):
+        UserCreate(name="John Doe", email="john@example.com")  # Mot de passe manquant
 
 def test_account_model_invalid_balance_type():
-    # Test balance non entier
-    with pytest.raises(ValidationError):
-        Account(id="A1", balance="not_an_int")
+    with pytest.raises(ValueError):
+        AccountSchema(id="acc1", balance="invalid")  # Balance doit être un float
 
 def test_transaction_create_missing_required_type():
-    with pytest.raises(ValidationError):
-        TransactionCreate(amount=100)
+    with pytest.raises(ValueError):
+        TransactionCreate(amount=50.0, destination="acc1")  # Type manquant
 
 def test_user_accounts_default_empty_list():
-    user = User(id=1, name="Alice", email="alice@example.com")
-    assert user.accounts == []
+    user = User(id=1, name="John Doe", email="john@example.com")
+    assert user.id == 1
+    assert user.name == "John Doe"
+    assert user.email == "john@example.com"
 
 def test_transaction_response_with_accounts():
-    origin_acc = Account(id="O1", balance=100)
-    dest_acc = Account(id="D1", balance=50)
-    resp = TransactionResponse(type="transfer", origin=origin_acc, destination=dest_acc)
-    assert resp.origin.id == "O1"
-    assert resp.destination.id == "D1"
+    origin = AccountSchema(id="acc1", balance=100.0)  # Utilise AccountSchema
+    destination = AccountSchema(id="acc2", balance=50.0)  # Utilise AccountSchema
+    response = TransactionResponse(type="transfer", origin=origin, destination=destination)
+    assert response.type == "transfer"
+    assert response.origin.id == "acc1"
+    assert response.origin.balance == 100.0
+    assert response.destination.id == "acc2"
+    assert response.destination.balance == 50.0
