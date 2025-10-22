@@ -87,7 +87,8 @@ def create_user(email: str = Form(...), password: str = Form(...)):
 # ---------------- Accounts ----------------
 @app.post("/accounts/", response_model=AccountSchema)
 def create_account(account: AccountCreate, db: Session = Depends(get_db)):
-    return crud.create_account(db, account)
+    # CORRECTION : Ajouter le user_id requis
+    return crud.create_account(db, account, user_id=account.user_id)
 
 @app.get("/balance")
 def get_balance(account_id: str):
