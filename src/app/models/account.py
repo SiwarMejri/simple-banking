@@ -9,6 +9,6 @@ class Account(Base):
     balance = Column(Float, default=0.0)
     owner_id = Column(Integer, ForeignKey("users.id"))
 
-    # Relations
+    # Relations - Correction des imports
     owner = relationship("User", back_populates="accounts")
     transactions = relationship("Transaction", back_populates="account")
