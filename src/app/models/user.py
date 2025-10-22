@@ -11,4 +11,4 @@ class UserModel(Base):
     password = Column(String)
 
     # Relations
-    accounts = relationship("Account", back_populates="owner")
+    accounts = relationship("AccountModel", back_populates="owner")
