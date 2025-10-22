@@ -10,9 +10,9 @@ import logging
 import os
 
 from schemas import TransactionResponse, TransactionCreate, AccountCreate, AccountSchema
-from models.database import SessionLocal, engine
-from models.base import Base
-from models import User, Account, Transaction  # Import corrigé via __init__.py
+from src.app.models.database import SessionLocal, engine  # CORRECTION : Chemin absolu
+from src.app.models.base import Base
+from src.app.models import User, Account, Transaction  # Import corrigé via __init__.py
 from core import core
 import crud
 
