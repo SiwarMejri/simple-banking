@@ -3,7 +3,7 @@ from .user import UserModel
 from .account import AccountModel
 from .transaction import TransactionModel
 
-# Exporter avec des noms simplifiés si nécessaire
+# Créer des alias pour une utilisation simplifiée
 User = UserModel
 Account = AccountModel
 Transaction = TransactionModel
