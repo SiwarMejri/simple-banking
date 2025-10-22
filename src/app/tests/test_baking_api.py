@@ -23,6 +23,9 @@ def test_create_account_with_initial_balance(client):
     assert body["destination"]["balance"] == 10
 
 def test_get_balance_existing_account(client):
+    # Ajouter un reset pour isoler le test
+    client.post("/reset")
+    
     client.post("/event", json={"type": "deposit", "destination": "100", "amount": 20})
     response = client.get("/balance", params={"account_id": "100"})
     assert response.status_code == 200, f"Erreur: {response.text}"
