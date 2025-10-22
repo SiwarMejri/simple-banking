@@ -12,7 +12,7 @@ class User(Base):
     email = Column(String, unique=True, nullable=False)
     password = Column(String, nullable=False)
 
-    # Relation vers Account
+    # Relation avec chaîne
     accounts = relationship("Account", back_populates="owner")
 
     def __repr__(self):
