@@ -1,3 +1,4 @@
-from .user import User
-from .models import Transaction
-from .models import Account
+from .base import Base
+from .user import UserModel as User
+from .account import AccountModel as Account
+from .transaction import TransactionModel as Transaction
