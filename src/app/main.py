@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Response, HTTPException, Depends, Form
+from fastapi import FastAPI, Request, HTTPException, Depends, Form
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -9,12 +9,11 @@ from pydantic import BaseModel
 import logging
 import os
 
-from database import Base, engine, SessionLocal
+from schemas import TransactionResponse, TransactionCreate, AccountCreate, AccountSchema
+from models.database import SessionLocal, engine
+from models import User, Account, Transaction  # <- Import correct via __init__.py
 from core import core
 import crud
-from models.user import User
-from models.account import Account
-from schemas import TransactionResponse, TransactionCreate, AccountCreate, AccountSchema
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO,
@@ -52,11 +51,11 @@ if os.getenv("TESTING", "0") != "1":
 
 # ---------------- Endpoints ----------------
 @app.get("/")
-async def root():
-    return {"message": "Hello, Simple Banking API!"}
+def root():
+    return {"message": "Welcome to the Simple Banking API"}
 
 @app.get("/protected")
-async def protected():
+def protected():
     return {"message": "Hello, endpoint accessible librement (auth supprimée)."}
 
 @app.get("/users/me")
@@ -64,11 +63,11 @@ def read_users_me():
     return {"user": None}
 
 @app.get("/create_user", response_class=HTMLResponse)
-async def create_user_form(request: Request):
+def create_user_form(request: Request):
     return templates.TemplateResponse("create_user.html", {"request": request})
 
 @app.post("/create_user")
-async def create_user(email: str = Form(...), password: str = Form(...)):
+def create_user(email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
     try:
         hashed_password = get_password_hash(password)
@@ -93,11 +92,11 @@ def create_account(account: AccountCreate, db: Session = Depends(get_db)):
 def get_balance(account_id: str):
     account = core.get_account_balance(account_id)
     if account is not None:
-        return {"account_id": account_id, "balance": account.balance if hasattr(account, "balance") else account}
+        return {"account_id": account_id, "balance": getattr(account, "balance", account)}
     else:
         raise HTTPException(status_code=404, detail="Account not found")
 
-@app.post("/reset", status_code=200)
+@app.post("/reset")
 def reset_state():
     core.reset_state()
     api_reset_counter.inc()
@@ -108,19 +107,26 @@ def reset_state():
 def process_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
     transaction_processed_counter.inc()
 
+    # Vérifier si les comptes existent pour dépôt et retrait
+    if transaction.type in ["deposit", "withdraw"]:
+        account_id = transaction.destination if transaction.type == "deposit" else transaction.origin
+        if account_id not in core.accounts:
+            raise HTTPException(status_code=404, detail="Account not found")
+
+    # Logique des transactions
     if transaction.type == "deposit":
         account = core.create_or_update_account(transaction.destination, transaction.amount)
         return TransactionResponse(
             type="deposit",
             origin=None,
-            destination=AccountSchema(id=account.id, balance=account.balance, owner_id=getattr(account, "owner_id", None))
+            destination=AccountSchema(id=account.id, balance=account.balance, owner_id=account.owner_id)
         )
     elif transaction.type == "withdraw":
         account = core.withdraw_from_account(transaction.origin, transaction.amount)
         if account:
             return TransactionResponse(
                 type="withdraw",
-                origin=AccountSchema(id=account.id, balance=account.balance, owner_id=getattr(account, "owner_id", None)),
+                origin=AccountSchema(id=account.id, balance=account.balance, owner_id=account.owner_id),
                 destination=None
             )
         else:
@@ -130,8 +136,8 @@ def process_transaction(transaction: TransactionCreate, db: Session = Depends(ge
         if origin and dest:
             return TransactionResponse(
                 type="transfer",
-                origin=AccountSchema(id=origin.id, balance=origin.balance, owner_id=getattr(origin, "owner_id", None)),
-                destination=AccountSchema(id=dest.id, balance=dest.balance, owner_id=getattr(dest, "owner_id", None))
+                origin=AccountSchema(id=origin.id, balance=origin.balance, owner_id=origin.owner_id),
+                destination=AccountSchema(id=dest.id, balance=dest.balance, owner_id=dest.owner_id)
             )
         else:
             raise HTTPException(status_code=403, detail="Transfer failed")
