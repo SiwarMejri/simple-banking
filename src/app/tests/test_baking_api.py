@@ -5,29 +5,6 @@ from src.app.main import app
 from src.app.database import Base, engine
 from src.app.core import core
 
-# ---------------- Fixture pour réinitialiser la DB avant et après chaque test ----------------
-@pytest.fixture(autouse=True)
-def reset_db():
-    os.environ["TESTING"] = "1"
-    try:
-        # Reset complet de la DB et de l'état core
-        Base.metadata.drop_all(bind=engine)
-        Base.metadata.create_all(bind=engine)
-        core.reset_state()
-        yield
-    finally:
-        Base.metadata.drop_all(bind=engine)
-        core.reset_state()
-        os.environ.pop("TESTING", None)
-
-# ---------------- Fixture client ----------------
-@pytest.fixture
-def client():
-    # Reset API state avant chaque test pour être sûr
-    client_instance = TestClient(app)
-    client_instance.post("/reset")
-    return client_instance
-
 # ---------------- Tests ----------------
 def test_create_account_with_initial_balance(client):
     response = client.post("/event", json={"type": "deposit", "destination": "100", "amount": 10})
