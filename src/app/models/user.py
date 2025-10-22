@@ -1,13 +1,13 @@
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-from .base import Base
+from src.app.database import Base  # Assurez-vous que Base est importé depuis database.py
 
-class UserModel(Base):
+class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
     email = Column(String, unique=True, index=True)
     password = Column(String)
 
-    accounts = relationship("AccountModel", back_populates="user")
+    # Relations
+    accounts = relationship("Account", back_populates="owner")
