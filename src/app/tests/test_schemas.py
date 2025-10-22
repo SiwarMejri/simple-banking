@@ -1,4 +1,3 @@
-# tests/test_schemas.py
 import pytest
 from src.app.schemas import UserCreate, User, AccountSchema, AccountCreate, TransactionCreate, TransactionResponse
 
@@ -16,9 +15,10 @@ def test_user_model():
     assert user.email == "john@example.com"
 
 def test_account_model():
-    account = AccountSchema(id="acc1", balance=100.0)  # Utilise AccountSchema
+    account = AccountSchema(id="acc1", balance=100.0, owner_id=1)  # Ajouté owner_id
     assert account.id == "acc1"
     assert account.balance == 100.0
+    assert account.owner_id == 1
 
 def test_account_create_model():
     account = AccountCreate(id="acc1", user_id=1)
@@ -36,7 +36,7 @@ def test_transaction_create_invalid():
         TransactionCreate(type="", amount=-10.0)  # Type vide et montant négatif
 
 def test_transaction_response():
-    response = TransactionResponse(type="deposit", origin=None, destination=AccountSchema(id="acc1", balance=50.0))  # Utilise AccountSchema
+    response = TransactionResponse(type="deposit", origin=None, destination=AccountSchema(id="acc1", balance=50.0, owner_id=1))  # Ajouté owner_id
     assert response.type == "deposit"
     assert response.origin is None
     assert response.destination.id == "acc1"
