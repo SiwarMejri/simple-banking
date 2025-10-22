@@ -1,14 +1,16 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from .base import Base
+from src.app.database import Base
 
-class TransactionModel(Base):
+class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True, index=True)
-    type = Column(String)
+    type = Column(String)  # e.g., "deposit", "withdraw", "transfer"
     amount = Column(Float)
-    origin = Column(String, nullable=True)
-    destination = Column(String, nullable=True)
-    timestamp = Column(DateTime, default=datetime.utcnow)
+    account_id = Column(String, ForeignKey("accounts.id"))
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relations
+    account = relationship("Account", back_populates="transactions")
