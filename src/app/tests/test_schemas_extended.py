@@ -21,8 +21,8 @@ def test_user_accounts_default_empty_list():
     assert user.email == "john@example.com"
 
 def test_transaction_response_with_accounts():
-    origin = AccountSchema(id="acc1", balance=100.0)  # Utilise AccountSchema
-    destination = AccountSchema(id="acc2", balance=50.0)  # Utilise AccountSchema
+    origin = AccountSchema(id="acc1", balance=100.0, owner_id=1)  # Ajouté owner_id
+    destination = AccountSchema(id="acc2", balance=50.0, owner_id=2)  # Ajouté owner_id
     response = TransactionResponse(type="transfer", origin=origin, destination=destination)
     assert response.type == "transfer"
     assert response.origin.id == "acc1"
