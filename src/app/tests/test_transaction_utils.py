@@ -1,38 +1,36 @@
-# tests/test_transaction_utils.py
 import pytest
-from src.app.models import transaction_utils as tu
+from src.app.models.transaction_utils import calculate_fee, validate_transaction, process_deposit, process_withdraw, process_transfer
 
 def test_calculate_fee():
-    assert tu.calculate_fee(100) == 2
-    assert tu.calculate_fee(0) == 0
-    assert tu.calculate_fee(1000) == 20
+    assert calculate_fee(100) == 2.0
+    assert calculate_fee(50) == 1.0
 
 def test_validate_transaction_valid():
-    assert tu.validate_transaction(200, 100) is True
+    assert validate_transaction(100, 50) is True
 
 def test_validate_transaction_invalid_amount():
     with pytest.raises(ValueError, match="Montant invalide"):
-        tu.validate_transaction(-10, 100)
+        validate_transaction(100, -10)
 
 def test_validate_transaction_insufficient_balance():
     with pytest.raises(ValueError, match="Solde insuffisant"):
-        tu.validate_transaction(300, 200)
+        validate_transaction(50, 100)
 
 def test_process_deposit():
-    tx = {"destination": "acc1", "amount": 100}
-    result = tu.process_deposit(tx)
+    transaction = {"amount": 100, "destination": "acc1"}
+    result = process_deposit(transaction)
     assert result["type"] == "deposit"
-    assert "destination" in result
+    assert result["destination"]["balance"] == 100
 
 def test_process_withdraw():
-    tx = {"origin": "acc1", "amount": 50}
-    result = tu.process_withdraw(tx)
+    transaction = {"amount": 50, "origin": "acc1"}
+    result = process_withdraw(transaction)
     assert result["type"] == "withdraw"
-    assert "origin" in result
+    assert result["origin"]["balance"] == 50
 
 def test_process_transfer():
-    tx = {"origin": "a1", "destination": "a2", "amount": 40}
-    result = tu.process_transfer(tx)
+    transaction = {"amount": 50, "origin": "acc1", "destination": "acc2"}
+    result = process_transfer(transaction)
     assert result["type"] == "transfer"
-    assert "origin" in result
-    assert "destination" in result
+    assert result["origin"]["balance"] == 50
+    assert result["destination"]["balance"] == 50
