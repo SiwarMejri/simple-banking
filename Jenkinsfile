@@ -2,7 +2,7 @@ pipeline {
     agent any
     environment {
         VENV_DIR      = "${WORKSPACE}/venv"
-        PYTHONPATH    = "${WORKSPACE}/src"  // Pointe vers src/ pour les imports corrects
+        PYTHONPATH    = "${WORKSPACE}/src/app"
         PIP_CACHE_DIR = "${WORKSPACE}/.pip-cache"
         ENVIRONMENT   = "test"
         DATABASE_URL  = "sqlite:///./test_banking.db"
@@ -22,7 +22,7 @@ pipeline {
 
         stage('Build') {
             steps {
-                echo "📦 Création de la virtualenv et installation des dépendances..."
+                echo "📦 Création du virtualenv et installation des dépendances..."
                 sh """
                     set -e
                     python3 -m venv ${VENV_DIR}
@@ -40,10 +40,9 @@ pipeline {
                     def testResult = sh(
                         script: """
                             set -e
-                            set -o pipefail  # Correction : Propager les erreurs de pytest (même avec piping vers tee)
                             . ${VENV_DIR}/bin/activate
                             export TESTING=1
-                            export PYTHONPATH=${WORKSPACE}/src  # Assure que PYTHONPATH pointe vers src/
+                            export PYTHONPATH=$WORKSPACE/src/app
                             pytest --disable-warnings --cov=src/app --cov-report=xml:coverage.xml -v | tee pytest-output.log
                         """,
                         returnStatus: true
