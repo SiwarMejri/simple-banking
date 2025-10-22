@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from src.app.models import User, Account, Transaction  # Import depuis __init__.py pour les alias
-from src.app.schemas import UserCreate, AccountCreate
+from models import User, Account, Transaction  # Correction des imports : suppression de src.app
+from schemas import UserCreate, AccountCreate
 
 def get_user(db: Session, user_id: int):
     return db.query(User).filter(User.id == user_id).first()
