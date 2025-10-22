@@ -11,5 +11,5 @@ class AccountModel(Base):
     owner_id = Column(Integer, ForeignKey("users.id"))
 
     # Relations
-    owner = relationship("User", back_populates="accounts")
+    owner = relationship("UserModel", back_populates="accounts")
     transactions = relationship("Transaction", back_populates="account")
