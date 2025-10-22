@@ -1,14 +1,15 @@
-from app.models.base import Base
-from app.models.database import engine
-from app import create_tables
+from models.base import Base
+from models.database import engine
+from create_tables import create_all_tables, get_inspector
 
-def test_tables_created():
+def test_tables_created(db):  # Utilisation de la fixture db pour le moteur de test
+    # db est le moteur de test (fixture modifiée)
     # Supprimer les tables si existantes
-    Base.metadata.drop_all(bind=engine)
+    Base.metadata.drop_all(bind=db)
     # Recréer
-    create_tables.create_all_tables()
+    Base.metadata.create_all(bind=db)  # Utilisation directe au lieu de create_all_tables pour le moteur de test
     # Vérifier que les tables existent
-    inspector = create_tables.get_inspector(engine)  # Utilisation de la fonction renommée
+    inspector = get_inspector(db)  # Utilisation du moteur de test
     tables = inspector.get_table_names()
     assert "users" in tables
     assert "accounts" in tables
