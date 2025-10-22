@@ -15,7 +15,7 @@ class Transaction(Base):
     origin_account = Column(String, ForeignKey("accounts.id"), nullable=True)
     destination_account = Column(String, ForeignKey("accounts.id"), nullable=True)
 
-    # Relations vers Account
+    # Relations avec chaînes
     origin_acc = relationship("Account", foreign_keys=[origin_account], back_populates="outgoing_transactions")
     dest_acc = relationship("Account", foreign_keys=[destination_account], back_populates="incoming_transactions")
 
