@@ -1,16 +1,8 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from datetime import datetime
+from typing import Optional, List
 
-# ----- Compte (on le met d'abord pour éviter les erreurs de type) -----
-class Account(BaseModel):
-    id: str
-    balance: int
-
-    model_config = {
-        "from_attributes": True
-    }
-
-# ----- Utilisateur -----
+# -------------------- USERS --------------------
 class UserBase(BaseModel):
     name: str
     email: str
@@ -20,29 +12,32 @@ class UserCreate(UserBase):
 
 class User(UserBase):
     id: int
-    accounts: List[Account] = []
+    class Config:
+        orm_mode = True
 
-    model_config = {
-        "from_attributes": True
-    }
-
-# ----- Compte Create (après User pour lier user_id) -----
-class AccountCreate(BaseModel):
+# -------------------- ACCOUNTS --------------------
+class AccountBase(BaseModel):
     id: str
+    balance: float = 0
+
+class AccountCreate(AccountBase):
     user_id: int
 
-# ----- Transaction -----
+class AccountSchema(AccountBase):  # Renommé pour éviter conflit avec SQLAlchemy Account
+    owner_id: Optional[int]
+    class Config:
+        orm_mode = True
+
+# -------------------- TRANSACTIONS --------------------
 class TransactionCreate(BaseModel):
     type: str
+    amount: float
     origin: Optional[str] = None
     destination: Optional[str] = None
-    amount: int
 
 class TransactionResponse(BaseModel):
     type: str
-    origin: Optional[Account] = None
-    destination: Optional[Account] = None
-
-    model_config = {
-        "from_attributes": True
-    }
+    status: Optional[str] = "success"
+    timestamp: datetime = datetime.now()
+    origin: Optional[AccountSchema] = None  # Utilise AccountSchema
+    destination: Optional[AccountSchema] = None
