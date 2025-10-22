@@ -11,10 +11,10 @@ if TESTING:
     # Base en mémoire (volatile) pour exécution de tests
     DATABASE_URL = "sqlite:///:memory:"
 else:
-    # Base locale par défaut (conforme à ta demande)
+    # Base locale par défaut
     DATABASE_URL = "sqlite:///./banking.db"
 
 # --- Création de l'engine ---
-# check_same_thread False pour permettre multi-thread testclient usage
 engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
