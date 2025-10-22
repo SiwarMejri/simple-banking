@@ -1,11 +1,7 @@
 import pytest
-import inspect
-from sqlalchemy import Column, Integer, String, Float, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
-
 
 class TestModelsImports:
-    """Tests corrigés pour les imports des modèles"""
+    """Tests pour la structure des modèles"""
     
     def test_user_model_structure(self):
         """Test la structure du modèle User"""
@@ -16,10 +12,11 @@ class TestModelsImports:
         assert UserModel.__tablename__ == 'users'
         
         # Vérifier les colonnes
-        columns = [col for col in UserModel.__table__.columns]
-        assert any(col.name == 'id' for col in columns)
-        assert any(col.name == 'name' for col in columns)
-        assert any(col.name == 'email' for col in columns)
+        columns = [col.name for col in UserModel.__table__.columns]
+        expected_columns = ['id', 'name', 'email', 'password']
+        
+        for col in expected_columns:
+            assert col in columns, f"Column {col} should exist in UserModel"
     
     def test_account_model_structure(self):
         """Test la structure du modèle Account"""
@@ -29,10 +26,12 @@ class TestModelsImports:
         assert hasattr(AccountModel, '__tablename__')
         assert AccountModel.__tablename__ == 'accounts'
         
-        columns = [col for col in AccountModel.__table__.columns]
-        assert any(col.name == 'id' for col in columns)
-        assert any(col.name == 'balance' for col in columns)
-        assert any(col.name == 'owner_id' for col in columns)
+        # Vérifier les colonnes
+        columns = [col.name for col in AccountModel.__table__.columns]
+        expected_columns = ['id', 'balance', 'owner_id']
+        
+        for col in expected_columns:
+            assert col in columns, f"Column {col} should exist in AccountModel"
     
     def test_transaction_model_structure(self):
         """Test la structure du modèle Transaction"""
@@ -42,13 +41,15 @@ class TestModelsImports:
         assert hasattr(TransactionModel, '__tablename__')
         assert TransactionModel.__tablename__ == 'transactions'
         
-        columns = [col for col in TransactionModel.__table__.columns]
-        assert any(col.name == 'id' for col in columns)
-        assert any(col.name == 'type' for col in columns)
-        assert any(col.name == 'amount' for col in columns)
+        # Vérifier les colonnes
+        columns = [col.name for col in TransactionModel.__table__.columns]
+        expected_columns = ['id', 'type', 'amount', 'origin', 'destination']
+        
+        for col in expected_columns:
+            assert col in columns, f"Column {col} should exist in TransactionModel"
     
     def test_models_relationships(self):
-        """Test que les relations entre modèles existent"""
+        """Test que les relations entre modèles sont définies"""
         from src.app.models.user import UserModel
         from src.app.models.account import AccountModel
         
