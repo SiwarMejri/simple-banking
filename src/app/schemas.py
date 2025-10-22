@@ -10,6 +10,14 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str
 
+    # AJOUT : Validateur d'email pour que le test passe
+    @field_validator('email')
+    @classmethod
+    def validate_email(cls, v):
+        if "@" not in v or "." not in v.split("@")[-1]:
+            raise ValueError('Invalid email format')
+        return v
+
 class User(UserBase):
     id: int
     class Config:
