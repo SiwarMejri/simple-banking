@@ -1,10 +1,9 @@
-# tests/test_models.py
 import pytest
 from pydantic import ValidationError
 
 def test_models_imports():
     # Test que les modèles s'importent correctement
-    from models import User, Account, Transaction
+    from src.app.models import UserModel, AccountModel, TransactionModel
     assert True  # Si on arrive ici, l'import a réussi
 
 def test_user_create_valid():
@@ -17,7 +16,6 @@ def test_user_create_valid():
 def test_user_create_invalid_email():
     from schemas import UserCreate
     # Test avec un email vraiment invalide
-    # CORRECTION : Changer ValidationError en ValueError car c'est un field_validator
     with pytest.raises(ValueError):
         UserCreate(name="test", email="not-an-email", password="pass")
 
@@ -51,20 +49,20 @@ def test_transaction_create_valid():
 def test_transaction_create_invalid_type():
     from schemas import TransactionCreate
     # Test type vide (doit déclencher ValidationError via le validateur)
-    with pytest.raises(ValueError):  # CORRECTION : Changer en ValueError
+    with pytest.raises(ValueError):
         TransactionCreate(type="", amount=100.0)
 
 def test_transaction_create_zero_amount():
     from schemas import TransactionCreate
     # Test montant zéro (doit déclencher ValidationError)
-    with pytest.raises(ValueError):  # CORRECTION : Changer en ValueError
+    with pytest.raises(ValueError):
         TransactionCreate(type="deposit", amount=0)
 
 def test_transaction_response():
     from schemas import TransactionResponse, AccountSchema
     from datetime import datetime
     # Test réponse de transaction
-    account = AccountSchema(id="acc1", balance=100.0)
+    account = AccountSchema(id="acc1", balance=100.0, owner_id=1)
     response = TransactionResponse(
         type="deposit",
         destination=account
