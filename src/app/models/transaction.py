@@ -12,5 +12,5 @@ class Transaction(Base):
     account_id = Column(String, ForeignKey("accounts.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relations
+    # Relations - Correction des imports
     account = relationship("Account", back_populates="transactions")
