@@ -2,7 +2,7 @@ from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
 from src.app.database import Base
 
-class UserModel(Base):  # Garder UserModel comme nom de classe
+class UserModel(Base):  # Doit s'appeler UserModel
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
