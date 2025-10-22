@@ -6,10 +6,10 @@ from starlette.testclient import TestClient
 # Ajoute src/ au path pour les imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from app.main import app
-from app.models.base import Base
-from app.models.database import engine
-from app.core import core
+from src.app.main import app
+from src.app.models.base import Base
+from src.app.models.database import engine
+from src.app.core import core
 
 # Les tests utilisent la fixture client de conftest.py
 
