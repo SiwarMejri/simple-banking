@@ -1,4 +1,3 @@
-# tests/test_main.py
 import sys
 import os
 import pytest
@@ -7,7 +6,7 @@ from fastapi.testclient import TestClient
 # Ajoute src/ au path pour les imports
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from app.main import app
+from src.app.main import app
 
 def test_root(client):  # Utilise la fixture client
     response = client.get("/")
@@ -65,11 +64,11 @@ def test_create_user_post_error(client):
 @pytest.mark.skip(reason="Problème d'infrastructure DB de test - 79/80 tests passent ✅")
 def test_create_account_endpoint(client, db):
     # Test POST /accounts/
-    from app.schemas import AccountCreate
-    from app.models import User
+    from src.app.schemas import AccountCreate
+    from src.app.models import UserModel
     
     # Créer un utilisateur de test
-    test_user = User(name="testuser", email="testuser@example.com", password="testpass")
+    test_user = UserModel(name="testuser", email="testuser@example.com", password="testpass")
     db.add(test_user)
     db.commit()
     db.refresh(test_user)
