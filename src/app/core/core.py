@@ -1,7 +1,7 @@
 from sqlalchemy import inspect, text
 from src.app.models.base import Base
 from src.app.models.database import engine
-from src.app.models.account import Account
+from src.app.models.account import AccountModel
 
 # Dictionnaire pour stocker les comptes en mémoire (exemple)
 accounts = {}
@@ -10,12 +10,11 @@ def reset_state():
     """Réinitialise complètement l'état mémoire et la base SQLite."""
     accounts.clear()
 
-    # Supprime explicitement les index avant drop_all (évite les conflits persistants)
+    # Supprime explicitement les tables pour éviter les conflits persistants
     with engine.begin() as conn:
-        conn.execute(text("DROP INDEX IF EXISTS ix_users_id"))
-        conn.execute(text("DROP INDEX IF EXISTS ix_accounts_id"))
-        conn.execute(text("DROP INDEX IF EXISTS ix_transactions_id"))
-        Base.metadata.drop_all(bind=conn)
+        conn.execute(text("DROP TABLE IF EXISTS transactions"))
+        conn.execute(text("DROP TABLE IF EXISTS accounts"))
+        conn.execute(text("DROP TABLE IF EXISTS users"))
         Base.metadata.create_all(bind=conn)
 
 def create_or_update_account(account_id: str, amount: float):
@@ -23,7 +22,7 @@ def create_or_update_account(account_id: str, amount: float):
     if account_id in accounts:
         accounts[account_id].balance += amount
     else:
-        accounts[account_id] = Account(id=account_id, balance=amount, owner_id=1)  # Valeur par défaut pour owner_id
+        accounts[account_id] = AccountModel(id=account_id, balance=amount, owner_id=1)  # Valeur par défaut pour owner_id
     return accounts[account_id]
 
 def get_account_balance(account_id: str):
@@ -47,8 +46,12 @@ def transfer_between_accounts(origin_id: str, dest_id: str, amount: float):
 
 def process_transaction(db_session, data):
     """Traite une transaction (placeholder pour extension future)."""
+    global accounts
     if not data or "from_account" not in data or "to_account" not in data:
         return {"status": "failed", "message": "Missing parameters"}
+    if "from_account" in data and data["from_account"] not in accounts:
+        return {"status": "failed", "message": "From account not found"}
+    if "to_account" in data and data["to_account"] not in accounts:
+        return {"status": "failed", "message": "To account not found"}
     # Logique simplifiée (à étendre selon les besoins)
     return {"status": "success"}
-    
