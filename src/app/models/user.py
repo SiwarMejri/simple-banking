@@ -1,19 +1,13 @@
-# src/app/models/user.py
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-from src.app.models.database import Base
+from .base import Base
 
-class User(Base):
+class UserModel(Base):
     __tablename__ = "users"
-    __table_args__ = {'extend_existing': True}
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
-    email = Column(String, unique=True, nullable=False)
-    password = Column(String, nullable=False)
+    name = Column(String, index=True)
+    email = Column(String, unique=True, index=True)
+    password = Column(String)
 
-    # Relation avec chaîne
-    accounts = relationship("Account", back_populates="owner")
-
-    def __repr__(self):
-        return f"<User(name='{self.name}', email='{self.email}')>"
+    accounts = relationship("AccountModel", back_populates="user")
