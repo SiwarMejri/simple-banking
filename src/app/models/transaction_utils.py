@@ -1,4 +1,3 @@
-# src/app/models/transaction_utils.py
 INVALID_AMOUNT_MSG = "Montant invalide"
 INSUFFICIENT_BALANCE_MSG = "Solde insuffisant"
 
