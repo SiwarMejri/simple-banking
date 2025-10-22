@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../.
 
 from app.main import app
 from app.models.base import Base
+from app.models.database import engine  # Ajout de l'import pour engine
 from app.core import core
 
 @pytest.fixture(scope="function")
