@@ -5,12 +5,13 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from src.app.models.base import Base
-from src.app.core import core
-from src.app.main import app
 
 # Ajoute le dossier src au path Python
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
+from app.main import app
+from app.models.base import Base
+from app.core import core
 
 @pytest.fixture(scope="function")
 def db():
@@ -31,6 +32,8 @@ def client():
 @pytest.fixture(scope="function", autouse=True)
 def reset_db():
     """Réinitialise complètement la base avant chaque test."""
-    core.reset_state()
+    # Supprime et recréer la DB une seule fois ici (évite redondance avec core.reset_state)
+    Base.metadata.drop_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
     yield
-
+    Base.metadata.drop_all(bind=engine)
