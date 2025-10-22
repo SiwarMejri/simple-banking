@@ -1,6 +1,6 @@
 import pytest
 from src.app.core import core
-from src.app.models.account import Account
+from src.app.models.account import AccountModel
 
 def test_create_or_update_account_new():
     core.reset_state()
