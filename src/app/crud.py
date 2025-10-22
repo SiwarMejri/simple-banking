@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from models import User, Account, Transaction  # Correction des imports : suppression de src.app
+from src.app.models import UserModel, AccountModel, TransactionModel # Correction des imports : suppression de src.app
 from schemas import UserCreate, AccountCreate
 
 def get_user(db: Session, user_id: int):
