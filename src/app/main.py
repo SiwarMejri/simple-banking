@@ -11,6 +11,7 @@ import os
 
 from schemas import TransactionResponse, TransactionCreate, AccountCreate, AccountSchema
 from models.database import SessionLocal, engine
+from models.base import Base  # Ajout de l'import manquant pour Base
 from models import User, Account, Transaction  # <- Import correct via __init__.py
 from core import core
 import crud
