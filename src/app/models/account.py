@@ -2,8 +2,9 @@ from sqlalchemy import Column, Integer, String, Float, ForeignKey
 from sqlalchemy.orm import relationship
 from src.app.database import Base
 
-class AccountModel(Base):  # Doit s'appeler AccountModel
+class AccountModel(Base):
     __tablename__ = "accounts"
+    __table_args__ = {'extend_existing': True}  # Ajoutez cette ligne
 
     id = Column(String, primary_key=True, index=True)
     balance = Column(Float, default=0.0)
