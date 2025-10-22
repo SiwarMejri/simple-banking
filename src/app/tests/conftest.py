@@ -5,34 +5,38 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-# Ajoute le dossier src au path Python
+# Ajoute le dossier src au path Python (pointe vers src/ pour importer app.main)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from main import app  # Import direct depuis main.py pour éviter les conflits
-from models.base import Base
-from models.database import engine  # Ajout de l'import pour engine
-from core import core
+from app.main import app  # Correction : Import depuis app.main (main.py dans src/app/)
+from app.models.base import Base
+from app.models.database import engine  # Pour référence, mais on utilisera test_engine
+from app.core import core
 
 @pytest.fixture(scope="function")
-def db():  # Modification : retourne le moteur de test au lieu de la session
+def db():
+    """Fixture pour une DB de test en mémoire."""
     test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
     Base.metadata.create_all(bind=test_engine)
     session = TestingSessionLocal()
-    yield test_engine  # Retourne le moteur pour les tests qui en ont besoin
+    yield session  # Retourne la session pour les tests
     session.close()
     Base.metadata.drop_all(bind=test_engine)
 
 @pytest.fixture(scope="session")
 def client():
-    """Client de test FastAPI réutilisable pour toute la session."""
+    """Client de test FastAPI réutilisable."""
     return TestClient(app)
 
 @pytest.fixture(scope="function", autouse=True)
 def reset_db():
-    """Réinitialise complètement la base avant chaque test."""
-    # Supprime et recréer la DB une seule fois ici (évite redondance avec core.reset_state)
-    Base.metadata.drop_all(bind=engine)
-    Base.metadata.create_all(bind=engine)
+    """Réinitialise la DB de test avant chaque test."""
+    # Utilise test_engine pour isolation (au lieu de engine global)
+    test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.drop_all(bind=test_engine)
+    Base.metadata.create_all(bind=test_engine)
+    # Réinitialise aussi core si nécessaire
+    core.reset_state()
     yield
-    Base.metadata.drop_all(bind=engine)
+    Base.metadata.drop_all(bind=test_engine)
