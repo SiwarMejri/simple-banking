@@ -7,6 +7,7 @@ class UserModel(Base):
     __table_args__ = {'extend_existing': True}  # Ajoutez cette ligne
 
     id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)  # Ajouter cette colonne
     email = Column(String, unique=True, index=True)
     password = Column(String)
 
