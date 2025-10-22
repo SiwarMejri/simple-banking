@@ -1,6 +1,5 @@
-# tests/test_create_tables.py
 from src.app import create_tables
-from src.app.database import engine, Base
+from src.app.database import Base, engine
 import pytest
 
 def test_tables_created():
@@ -13,3 +12,4 @@ def test_tables_created():
     tables = inspector.get_table_names()
     assert "users" in tables
     assert "accounts" in tables
+    assert "transactions" in tables
