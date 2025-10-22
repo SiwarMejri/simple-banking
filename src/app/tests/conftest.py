@@ -8,21 +8,20 @@ from sqlalchemy.orm import sessionmaker
 # Ajoute le dossier src au path Python
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from main import app  # Correction de l'import : directement depuis main.py
-from app.models.base import Base
-from app.models.database import engine  # Ajout de l'import pour engine
-from app.core import core
+from main import app  # Import direct depuis main.py pour éviter les conflits
+from models.base import Base
+from models.database import engine  # Ajout de l'import pour engine
+from core import core
 
 @pytest.fixture(scope="function")
-def db():
-    """Fixture pour initialiser une base SQLite en mémoire avant chaque test."""
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    Base.metadata.create_all(bind=engine)
+def db():  # Modification : retourne le moteur de test au lieu de la session
+    test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+    Base.metadata.create_all(bind=test_engine)
     session = TestingSessionLocal()
-    yield session
+    yield test_engine  # Retourne le moteur pour les tests qui en ont besoin
     session.close()
-    Base.metadata.drop_all(bind=engine)
+    Base.metadata.drop_all(bind=test_engine)
 
 @pytest.fixture(scope="session")
 def client():
