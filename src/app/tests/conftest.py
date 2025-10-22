@@ -8,32 +8,55 @@ from sqlalchemy.orm import sessionmaker
 # Ajoute le dossier src au path Python (pointe vers src/ pour importer app.main)
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from app.main import app, get_db  # Import get_db pour l'override
+from app.main import app, get_db
 from app.models.base import Base
-from app.models.database import engine  # Pour référence, mais on utilisera test_engine
 from app.core import core
+
+# Base de données de test en mémoire
+TEST_DATABASE_URL = "sqlite:///:memory:"
 
 @pytest.fixture(scope="function")
 def db():
     """Fixture pour une DB de test en mémoire."""
-    test_engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
+    # CORRECTION : Utiliser connect_args pour SQLite
+    test_engine = create_engine(
+        TEST_DATABASE_URL, 
+        connect_args={"check_same_thread": False}
+    )
+    
+    # CORRECTION : Créer toutes les tables
     Base.metadata.create_all(bind=test_engine)
+    
+    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
     session = TestingSessionLocal()
-    yield session  # Retourne la session pour les tests
-    session.close()
-    Base.metadata.drop_all(bind=test_engine)
+    
+    try:
+        yield session
+    finally:
+        session.close()
+        # CORRECTION : Ne pas supprimer les tables pour éviter les conflits
+        # Base.metadata.drop_all(bind=test_engine)
 
 @pytest.fixture(scope="function")
 def client(db):
     """Client de test FastAPI avec DB isolée."""
     # Override la dépendance get_db pour utiliser la session de test
     def override_get_db():
-        yield db
+        try:
+            yield db
+        finally:
+            pass
+    
     app.dependency_overrides[get_db] = override_get_db
+    
+    # CORRECTION : Réinitialiser l'état de core
+    core.reset_state()
+    
     test_client = TestClient(app)
     yield test_client
-    app.dependency_overrides.clear()  # Nettoyer après le test
+    
+    # Nettoyer après le test
+    app.dependency_overrides.clear()
 
 @pytest.fixture(scope="function", autouse=True)
 def reset_core():
