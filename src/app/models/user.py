@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship
-from src.app.database import Base  # Assurez-vous que Base est importé depuis database.py
+from src.app.database import Base
 
 class User(Base):
     __tablename__ = "users"
@@ -9,5 +9,5 @@ class User(Base):
     email = Column(String, unique=True, index=True)
     password = Column(String)
 
-    # Relations
+    # Relations - Correction des imports
     accounts = relationship("Account", back_populates="owner")
