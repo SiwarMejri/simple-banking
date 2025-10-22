@@ -24,7 +24,7 @@ class AccountCreate(AccountBase):
     user_id: int
 
 class AccountSchema(AccountBase):  # Renommé pour éviter conflit avec SQLAlchemy Account
-    owner_id: Optional[int]
+    owner_id: Optional[int] = None  # Rendu optionnel pour les tests
     class Config:
         orm_mode = True
 
@@ -39,5 +39,5 @@ class TransactionResponse(BaseModel):
     type: str
     status: Optional[str] = "success"
     timestamp: datetime = datetime.now()
-    origin: Optional[AccountSchema] = None  # Utilise AccountSchema
+    origin: Optional[AccountSchema] = None
     destination: Optional[AccountSchema] = None
