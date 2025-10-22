@@ -109,4 +109,4 @@ def test_github_webhook(client):
     response = client.post("/github-webhook/", json=payload)
     assert response.status_code == 200
     data = response.json()
-    assert data["status"] == "received"status_code in (400, 422), f"Erreur: {response.status_code}"
+    assert data["status"] == "received"
