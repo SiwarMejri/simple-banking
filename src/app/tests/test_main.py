@@ -65,8 +65,11 @@ def test_create_account_endpoint(client, db):
     # Test POST /accounts/
     from app.schemas import AccountCreate
     from app.models import User
+    from app.models.base import Base
     
-    # CORRECTION : Utiliser les imports absolus avec app.
+    # CORRECTION : FORCER la création des tables
+    Base.metadata.create_all(bind=db.bind)
+    
     # Créer un utilisateur de test
     test_user = User(name="testuser", email="testuser@example.com", password="testpass")
     db.add(test_user)
