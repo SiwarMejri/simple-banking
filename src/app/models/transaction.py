@@ -3,7 +3,7 @@ from sqlalchemy.orm import relationship
 from datetime import datetime
 from src.app.database import Base
 
-class Transaction(Base):
+class TransactionModel(Base):  # Doit s'appeler TransactionModel
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -12,5 +12,5 @@ class Transaction(Base):
     account_id = Column(String, ForeignKey("accounts.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # Relations - Correction des imports
+    # Relations
     account = relationship("Account", back_populates="transactions")
