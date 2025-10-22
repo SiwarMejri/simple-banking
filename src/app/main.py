@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request, Response, HTTPException, Depends, Form
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
@@ -14,7 +14,7 @@ from core import core
 import crud
 from models.user import User
 from models.account import Account
-from schemas import TransactionResponse, AccountCreate, AccountSchema  # <-- Import corrigé
+from schemas import TransactionResponse, TransactionCreate, AccountCreate, AccountSchema
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO,
@@ -22,7 +22,7 @@ logging.basicConfig(level=logging.INFO,
 logger = logging.getLogger("fastapi-app")
 
 # ---------------- FastAPI ----------------
-app = FastAPI()
+app = FastAPI(title="Simple Banking API", version="1.0.0")
 Base.metadata.create_all(bind=engine)
 templates = Jinja2Templates(directory="src/templates")
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -47,8 +47,8 @@ user_created_counter = get_or_create_counter("user_created_total", "Nombre total
 api_reset_counter = get_or_create_counter("api_reset_total", "Nombre de resets de l'API")
 transaction_processed_counter = get_or_create_counter("transaction_processed_total", "Nombre de transactions traitées")
 
-instrumentator = Instrumentator()
-instrumentator.instrument(app).expose(app)
+if os.getenv("TESTING", "0") != "1":
+    Instrumentator().instrument(app).expose(app)
 
 # ---------------- Endpoints ----------------
 @app.get("/")
@@ -92,9 +92,10 @@ def create_account(account: AccountCreate, db: Session = Depends(get_db)):
 @app.get("/balance")
 def get_balance(account_id: str):
     account = core.get_account_balance(account_id)
-    if account is None:
+    if account is not None:
+        return {"account_id": account_id, "balance": account.balance if hasattr(account, "balance") else account}
+    else:
         raise HTTPException(status_code=404, detail="Account not found")
-    return {"account_id": account_id, "balance": account.balance}
 
 @app.post("/reset", status_code=200)
 def reset_state():
@@ -103,36 +104,37 @@ def reset_state():
     return {"message": "API reset executed"}
 
 # ---------------- Transactions ----------------
-class TransactionRequest(BaseModel):
-    type: str
-    origin: str | None = None
-    destination: str | None = None
-    amount: float
-
 @app.post("/event", response_model=TransactionResponse)
-async def process_transaction(transaction: TransactionRequest):
+def process_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
     transaction_processed_counter.inc()
+
     if transaction.type == "deposit":
         account = core.create_or_update_account(transaction.destination, transaction.amount)
         return TransactionResponse(
             type="deposit",
             origin=None,
-            destination=AccountSchema(id=account.id, balance=account.balance)
+            destination=AccountSchema(id=account.id, balance=account.balance, owner_id=getattr(account, "owner_id", None))
         )
     elif transaction.type == "withdraw":
         account = core.withdraw_from_account(transaction.origin, transaction.amount)
-        return TransactionResponse(
-            type="withdraw",
-            origin=AccountSchema(id=account.id, balance=account.balance),
-            destination=None
-        )
+        if account:
+            return TransactionResponse(
+                type="withdraw",
+                origin=AccountSchema(id=account.id, balance=account.balance, owner_id=getattr(account, "owner_id", None)),
+                destination=None
+            )
+        else:
+            raise HTTPException(status_code=403, detail="Insufficient balance")
     elif transaction.type == "transfer":
-        origin, destination = core.transfer_between_accounts(transaction.origin, transaction.destination, transaction.amount)
-        return TransactionResponse(
-            type="transfer",
-            origin=AccountSchema(id=origin.id, balance=origin.balance) if origin else None,
-            destination=AccountSchema(id=destination.id, balance=destination.balance) if destination else None
-        )
+        origin, dest = core.transfer_between_accounts(transaction.origin, transaction.destination, transaction.amount)
+        if origin and dest:
+            return TransactionResponse(
+                type="transfer",
+                origin=AccountSchema(id=origin.id, balance=origin.balance, owner_id=getattr(origin, "owner_id", None)),
+                destination=AccountSchema(id=dest.id, balance=dest.balance, owner_id=getattr(dest, "owner_id", None))
+            )
+        else:
+            raise HTTPException(status_code=403, detail="Transfer failed")
     else:
         raise HTTPException(status_code=400, detail="Invalid transaction type")
 
@@ -140,5 +142,5 @@ async def process_transaction(transaction: TransactionRequest):
 @app.post("/github-webhook/")
 async def github_webhook(request: Request):
     payload = await request.json()
-    print(payload)
+    logger.info(f"Received GitHub webhook: {payload}")
     return {"status": "received"}
