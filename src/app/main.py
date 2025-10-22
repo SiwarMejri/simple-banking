@@ -11,8 +11,8 @@ import os
 
 from schemas import TransactionResponse, TransactionCreate, AccountCreate, AccountSchema
 from models.database import SessionLocal, engine
-from models.base import Base  # Ajout de l'import manquant pour Base
-from models import User, Account, Transaction  # <- Import correct via __init__.py
+from models.base import Base
+from models import User, Account, Transaction  # Import corrigé via __init__.py
 from core import core
 import crud
 
@@ -72,7 +72,8 @@ def create_user(email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
     try:
         hashed_password = get_password_hash(password)
-        new_user = User(name=email.split("@")[0], email=email, hashed_password=hashed_password)
+        # CORRECTION : Utiliser User directement depuis models
+        new_user = User(email=email, password=hashed_password)
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
@@ -87,7 +88,6 @@ def create_user(email: str = Form(...), password: str = Form(...)):
 # ---------------- Accounts ----------------
 @app.post("/accounts/", response_model=AccountSchema)
 def create_account(account: AccountCreate, db: Session = Depends(get_db)):
-    # CORRECTION : Ajouter le user_id requis
     return crud.create_account(db, account, user_id=account.user_id)
 
 @app.get("/balance")
