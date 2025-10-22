@@ -1,7 +1,9 @@
 # tests/test_crud.py
 import pytest
 from sqlalchemy.orm import Session
-from src.app.models import UserModel, AccountModel, TransactionModel
+from src.app.models.user import UserModel
+from src.app.models.account import AccountModel  
+from src.app.models.transaction import TransactionModel
 from crud import (
     get_user, get_users, create_user, get_account, get_accounts, create_account,
     get_transaction, get_transactions, create_transaction
