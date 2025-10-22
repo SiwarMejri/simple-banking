@@ -1,24 +1,23 @@
 import pytest
 from src.app.core import core
-from src.app.models.account import AccountModel
 
 @pytest.fixture
 def setup_accounts():
     """Initialise deux comptes en mémoire avant chaque test."""
     core.accounts.clear()
-    core.accounts["a1"] = AccountModel(id="a1", balance=100)
-    core.accounts["a2"] = AccountModel(id="a2", balance=50)
+    core.accounts["a1"] = core.MemoryAccount(id="a1", balance=100)
+    core.accounts["a2"] = core.MemoryAccount(id="a2", balance=50)
     yield
     core.accounts.clear()
 
 def test_create_account_and_balance():
     core.accounts.clear()
-    core.accounts["u1"] = AccountModel(id="u1", balance=200)
+    core.accounts["u1"] = core.MemoryAccount(id="u1", balance=200)
     assert core.accounts["u1"].balance == 200
 
 def test_update_account_balance():
     core.accounts.clear()
-    core.accounts["u1"] = AccountModel(id="u1", balance=100)
+    core.accounts["u1"] = core.MemoryAccount(id="u1", balance=100)
     core.accounts["u1"].balance += 50
     assert core.accounts["u1"].balance == 150
 
