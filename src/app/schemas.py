@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from datetime import datetime
 from typing import Optional, List
 
@@ -23,7 +23,7 @@ class AccountBase(BaseModel):
 class AccountCreate(AccountBase):
     user_id: int
 
-class AccountSchema(AccountBase):  # Renommé pour éviter conflit avec SQLAlchemy Account
+class AccountSchema(AccountBase):  # Renommé pour éviter conflit avec SQLAlchemy AccountModel
     owner_id: Optional[int] = None  # Rendu optionnel pour les tests
     class Config:
         orm_mode = True
@@ -34,6 +34,20 @@ class TransactionCreate(BaseModel):
     amount: float
     origin: Optional[str] = None
     destination: Optional[str] = None
+
+    @field_validator('type')
+    @classmethod
+    def type_must_not_be_empty(cls, v):
+        if not v.strip():
+            raise ValueError('type must not be empty')
+        return v
+
+    @field_validator('amount')
+    @classmethod
+    def amount_must_be_positive(cls, v):
+        if v <= 0:
+            raise ValueError('amount must be positive')
+        return v
 
 class TransactionResponse(BaseModel):
     type: str
