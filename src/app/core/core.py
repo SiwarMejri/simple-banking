@@ -1,4 +1,3 @@
-# src/app/core/core.py
 from sqlalchemy import inspect, text
 from src.app.models.base import Base
 from src.app.models.database import engine
@@ -24,7 +23,7 @@ def create_or_update_account(account_id: str, amount: float):
     if account_id in accounts:
         accounts[account_id].balance += amount
     else:
-        accounts[account_id] = Account(id=account_id, balance=amount)
+        accounts[account_id] = Account(id=account_id, balance=amount, owner_id=1)  # Valeur par défaut pour owner_id
     return accounts[account_id]
 
 def get_account_balance(account_id: str):
@@ -48,7 +47,8 @@ def transfer_between_accounts(origin_id: str, dest_id: str, amount: float):
 
 def process_transaction(db_session, data):
     """Traite une transaction (placeholder pour extension future)."""
-    if not data:
+    if not data or "from_account" not in data or "to_account" not in data:
         return {"status": "failed", "message": "Missing parameters"}
     # Logique simplifiée (à étendre selon les besoins)
     return {"status": "success"}
+    
