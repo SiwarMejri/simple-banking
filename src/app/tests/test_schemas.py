@@ -1,31 +1,43 @@
 # tests/test_schemas.py
 import pytest
-from src.app.schemas import UserCreate, User, Account, AccountCreate, TransactionCreate, TransactionResponse
-from pydantic import ValidationError
+from src.app.schemas import UserCreate, User, AccountSchema, AccountCreate, TransactionCreate, TransactionResponse
 
+# ---------------- Tests pour les schémas ----------------
 def test_user_create_model():
-    user = UserCreate(name="Alice", email="alice@example.com", password="123")
-    assert user.name == "Alice"
-    assert user.email == "alice@example.com"
+    user = UserCreate(name="John Doe", email="john@example.com", password="secret")
+    assert user.name == "John Doe"
+    assert user.email == "john@example.com"
+    assert user.password == "secret"
+
+def test_user_model():
+    user = User(id=1, name="John Doe", email="john@example.com")
+    assert user.id == 1
+    assert user.name == "John Doe"
+    assert user.email == "john@example.com"
 
 def test_account_model():
-    acc = Account(id="A", balance=100)
-    assert acc.id == "A"
-    assert acc.balance == 100
+    account = AccountSchema(id="acc1", balance=100.0)  # Utilise AccountSchema
+    assert account.id == "acc1"
+    assert account.balance == 100.0
 
 def test_account_create_model():
-    account = AccountCreate(id="A2", user_id=1)
-    assert account.id == "A2"
+    account = AccountCreate(id="acc1", user_id=1)
+    assert account.id == "acc1"
     assert account.user_id == 1
 
 def test_transaction_create_valid():
-    tx = TransactionCreate(type="deposit", destination="A", amount=50)
-    assert tx.amount == 50
+    transaction = TransactionCreate(type="deposit", amount=50.0, destination="acc1")
+    assert transaction.type == "deposit"
+    assert transaction.amount == 50.0
+    assert transaction.destination == "acc1"
 
 def test_transaction_create_invalid():
-    with pytest.raises(ValidationError):
-        TransactionCreate(type="deposit", destination="A", amount="invalid")
+    with pytest.raises(ValueError):
+        TransactionCreate(type="", amount=-10.0)  # Type vide et montant négatif
 
 def test_transaction_response():
-    resp = TransactionResponse(type="withdraw")
-    assert resp.type == "withdraw"
+    response = TransactionResponse(type="deposit", origin=None, destination=AccountSchema(id="acc1", balance=50.0))  # Utilise AccountSchema
+    assert response.type == "deposit"
+    assert response.origin is None
+    assert response.destination.id == "acc1"
+    assert response.destination.balance == 50.0
