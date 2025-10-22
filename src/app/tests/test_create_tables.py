@@ -1,16 +1,21 @@
-from models.base import Base
-from models.database import engine
-from create_tables import create_all_tables, get_inspector
+import pytest
+from sqlalchemy import inspect
+from src.app.models.base import Base
 
-def test_tables_created(db):  # Utilisation de la fixture db pour la session de test
-    # db est une Session, utiliser db.bind pour l'Engine
-    # Supprimer les tables si existantes
+def get_inspector(engine):
+    return inspect(engine)
+
+def test_tables_created(db):
+    """Test que les tables sont créées correctement"""
+    # Nettoyer et recréer les tables
     Base.metadata.drop_all(bind=db.bind)
-    # Recréer
-    Base.metadata.create_all(bind=db.bind)  # Utilisation directe au lieu de create_all_tables pour le moteur de test
+    Base.metadata.create_all(bind=db.bind)
+    
     # Vérifier que les tables existent
-    inspector = get_inspector(db.bind)  # Utilisation de db.bind pour l'Engine
+    inspector = get_inspector(db.bind)
     tables = inspector.get_table_names()
-    assert "users" in tables
-    assert "accounts" in tables
-    assert "transactions" in tables
+    
+    # Vérifier les tables principales
+    expected_tables = ["users", "accounts", "transactions"]
+    for table in expected_tables:
+        assert table in tables, f"Table {table} should exist"
