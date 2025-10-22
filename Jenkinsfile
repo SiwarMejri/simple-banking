@@ -41,32 +41,32 @@ pipeline {
                         script: """
                             set -e
                             . ${VENV_DIR}/bin/activate
-                            export PYTHONPATH=$WORKSPACE/src/app
+                            export PYTHONPATH=${WORKSPACE}/src/app
                             
                             # Vérification de tous les imports critiques
-                            python -c "
-                            try:
-                                # Vérifier les imports des modèles
-                                from src.app.models.user import UserModel
-                                from src.app.models.account import AccountModel  
-                                from src.app.models.transaction import TransactionModel
-                                print('✅ Import des modèles individuels réussi')
-                                
-                                # Vérifier les imports via __init__.py
-                                from src.app.models import User, Account, Transaction
-                                print('✅ Import via __init__.py réussi')
-                                
-                                # Vérifier l'import de l'app principale
-                                from src.app.main import app
-                                print('✅ Import de l\\\\'app principale réussi')
-                                
-                                print('🎉 Tous les imports fonctionnent parfaitement')
-                            except ImportError as e:
-                                print(f'❌ Erreur d\\\\'importation: {e}')
-                                import traceback
-                                traceback.print_exc()
-                                exit(1)
-                            "
+                            python3 << 'EOF'
+try:
+    # Vérifier les imports des modèles
+    from src.app.models.user import UserModel
+    from src.app.models.account import AccountModel  
+    from src.app.models.transaction import TransactionModel
+    print('✅ Import des modèles individuels réussi')
+    
+    # Vérifier les imports via __init__.py
+    from src.app.models import User, Account, Transaction
+    print('✅ Import via __init__.py réussi')
+    
+    # Vérifier l'import de l'app principale
+    from src.app.main import app
+    print('✅ Import de l\\\\'app principale réussi')
+    
+    print('🎉 Tous les imports fonctionnent parfaitement')
+except ImportError as e:
+    print(f'❌ Erreur d\\\\'importation: {e}')
+    import traceback
+    traceback.print_exc()
+    exit(1)
+EOF
                         """,
                         returnStatus: true
                     )
@@ -89,7 +89,7 @@ pipeline {
                             set -e
                             . ${VENV_DIR}/bin/activate
                             export TESTING=1
-                            export PYTHONPATH=$WORKSPACE/src/app
+                            export PYTHONPATH=${WORKSPACE}/src/app
                             
                             # Exécuter les tests avec capture du code de sortie
                             pytest --disable-warnings --cov=src/app --cov-report=xml:coverage.xml -v || exit 1
