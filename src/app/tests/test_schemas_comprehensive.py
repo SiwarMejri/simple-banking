@@ -35,13 +35,14 @@ class TestAccountSchemasCorrected:
         assert account.user_id == 1
     
     def test_account_schema_owner_id_required(self):
-        """Test que AccountSchema requiert owner_id"""
-        data = {"id": "ACC123", "balance": 1000.0}
-        
-        # Doit échouer car owner_id est requis
-        with pytest.raises(ValidationError) as exc_info:
-            AccountSchema(**data)
-        
+    """Test que AccountSchema requiert owner_id"""
+    data = {"id": "ACC123", "balance": 1000.0}
+    
+    # CORRECTION : Vérifier que l'erreur est bien levée
+    try:
+        AccountSchema(**data)
+        assert False, "ValidationError should have been raised"
+    except ValidationError as exc_info:
         assert "owner_id" in str(exc_info.value)
     
     def test_account_schema_with_owner_id(self):
