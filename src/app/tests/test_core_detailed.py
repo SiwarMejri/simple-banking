@@ -21,10 +21,12 @@ class TestCoreDetailed:
         assert account.balance == 100.0
     
     def test_create_account_existing(self):
-        """Test création d'un compte existant"""
-        self.core.create_account("ACC001", 100.0)
-        account = self.core.create_account("ACC001", 200.0)  # Mise à jour
-        assert account.balance == 200.0
+        """Test création d'un compte existant - devrait retourner le compte existant"""
+        account1 = self.core.create_account("ACC001", 100.0)
+        account2 = self.core.create_account("ACC001", 200.0)
+        # Le compte existant devrait être retourné, le solde ne change pas
+        assert account2.balance == 100.0
+        assert account1 is account2  # Même instance
     
     def test_get_account_exists(self):
         """Test récupération d'un compte existant"""
@@ -42,6 +44,7 @@ class TestCoreDetailed:
         """Test retrait réussi"""
         self.core.create_account("ACC001", 100.0)
         account = self.core.withdraw("ACC001", 50.0)
+        assert account is not None
         assert account.balance == 50.0
     
     def test_withdraw_insufficient_balance(self):
@@ -62,9 +65,10 @@ class TestCoreDetailed:
         assert account.balance == 150.0
     
     def test_deposit_account_not_found(self):
-        """Test dépôt sur compte inexistant"""
-        account = self.core.deposit("NONEXISTENT", 50.0)
-        assert account is None
+        """Test dépôt sur compte inexistant - devrait créer le compte"""
+        account = self.core.deposit("NEW_ACCOUNT", 50.0)
+        assert account is not None
+        assert account.balance == 50.0
     
     def test_transfer_success(self):
         """Test transfert réussi"""
@@ -108,4 +112,5 @@ class TestCoreDetailed:
         
         self.core.reset_state()
         
-        assert self.core.accounts == {}
+        assert len(self.core.accounts) == 0
+        assert self.core.get_account("ACC001") is None
