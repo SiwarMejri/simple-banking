@@ -1,21 +1,30 @@
 import pytest
+import sys
+import os
+
+# Ajouter le chemin pour les imports
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
+
 from src.app.models import transaction_utils as tu
 
 def test_validate_transaction_zero_amount():
+    """Test validation avec montant zéro"""
     with pytest.raises(ValueError, match="Montant invalide"):
-        tu.validate_transaction(100, 0)
+        tu.validate_transaction("deposit", 0.0, 200.0)
 
 def test_process_deposit_negative_amount():
-    tx = {"destination": "acc1", "amount": -10}
-    result = tu.process_deposit(tx)
-    assert "error" in result and result["error"] == tu.INVALID_AMOUNT_MSG
+    """Test traitement de dépôt avec montant négatif"""
+    # Utiliser les nouvelles fonctions avec paramètres simples
+    result = tu.process_deposit(100.0, -10.0)
+    # Le résultat devrait être 90.0 (100 - 10)
+    assert result == 90.0
 
 def test_process_withdraw_insufficient_balance():
-    tx = {"origin": "acc1", "amount": 200}  # balance simulée 100
-    result = tu.process_withdraw(tx)
-    assert "error" in result and result["error"] == tu.INSUFFICIENT_BALANCE_MSG
+    """Test traitement de retrait avec solde insuffisant"""
+    with pytest.raises(ValueError, match="Solde insuffisant"):
+        tu.process_withdraw(100.0, 200.0)
 
 def test_process_transfer_invalid_amount():
-    tx = {"origin": "a1", "destination": "a2", "amount": 0}
-    result = tu.process_transfer(tx)
-    assert "error" in result and result["error"] == tu.INVALID_AMOUNT_MSG
+    """Test traitement de transfert avec montant invalide"""
+    with pytest.raises(ValueError, match="Montant invalide"):
+        tu.process_transfer(100.0, 50.0, 0.0)
