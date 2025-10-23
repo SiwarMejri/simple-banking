@@ -26,18 +26,18 @@ def test_account_create_model():
     assert account.user_id == 1
 
 def test_transaction_create_valid():
-    transaction = TransactionCreate(type="deposit", amount=50.0, destination="acc1")
+    # CORRECTION : utiliser account_id au lieu de destination
+    transaction = TransactionCreate(type="deposit", amount=50.0, account_id="acc1")
     assert transaction.type == "deposit"
     assert transaction.amount == 50.0
-    assert transaction.destination == "acc1"
+    assert transaction.account_id == "acc1"
 
 def test_transaction_create_invalid():
     with pytest.raises(ValueError):
         TransactionCreate(type="", amount=-10.0)  # Type vide et montant négatif
 
 def test_transaction_response():
-    response = TransactionResponse(type="deposit", origin=None, destination=AccountSchema(id="acc1", balance=50.0, owner_id=1))  # Ajouté owner_id
+    # CORRECTION : utiliser account_id au lieu de origin/destination
+    response = TransactionResponse(type="deposit", account_id="acc1")
     assert response.type == "deposit"
-    assert response.origin is None
-    assert response.destination.id == "acc1"
-    assert response.destination.balance == 50.0
+    assert response.account_id == "acc1"
