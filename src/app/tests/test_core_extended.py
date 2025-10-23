@@ -41,10 +41,10 @@ def test_transfer_between_accounts_insufficient_balance():
     assert origin is None and dest is None
 
 def test_process_transaction_missing_params(db):
-    result = core.process_transaction(db, {})
+    result = core.process_transaction({})
     assert result["status"] == "failed"
 
 def test_process_transaction_non_existing_account(db):
     data = {"from_account": "unknown1", "to_account": "unknown2", "amount": 10}
-    result = core.process_transaction(db, data)
+    result = core.process_transaction(data)
     assert result["status"] == "failed"
