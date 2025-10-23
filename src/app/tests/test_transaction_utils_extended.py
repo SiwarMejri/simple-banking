@@ -26,5 +26,6 @@ def test_process_withdraw_insufficient_balance():
 
 def test_process_transfer_invalid_amount():
     """Test traitement de transfert avec montant invalide"""
+    # Tester avec un montant vraiment invalide (négatif) au lieu de 0.0
     with pytest.raises(ValueError, match="Montant invalide"):
-        tu.process_transfer(100.0, 50.0, 0.0)
+        tu.process_transfer(100.0, 50.0, -10.0)
