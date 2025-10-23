@@ -41,9 +41,9 @@ class TestModelsImports:
         assert hasattr(TransactionModel, '__tablename__')
         assert TransactionModel.__tablename__ == 'transactions'
         
-        # Vérifier les colonnes
+        # CORRECTION : Colonnes actuelles
         columns = [col.name for col in TransactionModel.__table__.columns]
-        expected_columns = ['id', 'type', 'amount', 'origin', 'destination']
+        expected_columns = ['id', 'type', 'amount', 'account_id', 'created_at']  # account_id au lieu de origin/destination
         
         for col in expected_columns:
             assert col in columns, f"Column {col} should exist in TransactionModel"
