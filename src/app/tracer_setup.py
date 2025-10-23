@@ -23,19 +23,23 @@ trace.set_tracer_provider(
 tracer = trace.get_tracer(__name__)
 
 # ---------------- Configuration via variables d'environnement ----------------
-# Utiliser une variable unique pour l'endpoint complet
-jaeger_endpoint = os.getenv('JAEGER_COLLECTOR_ENDPOINT', 'https://192.168.240.143:14268/api/traces')
+jaeger_endpoint = os.getenv('JAEGER_COLLECTOR_ENDPOINT')
 
-# ---------------- Exporter Jaeger sécurisé ----------------
-jaeger_exporter = JaegerExporter(
-    # Utiliser les variables d'environnement pour éviter les IPs hardcodées
-    collector_endpoint=jaeger_endpoint,
-    username=os.getenv('JAEGER_USER', ''),        # Chaîne vide si pas d'authentification
-    password=os.getenv('JAEGER_PASSWORD', ''),    # Chaîne vide si pas d'authentification
-)
+if not jaeger_endpoint:
+    print("⚠️  JAEGER_COLLECTOR_ENDPOINT non défini - Jaeger tracing désactivé")
+    jaeger_exporter = None
+else:
+    print(f"✅ Configuration Jaeger: {jaeger_endpoint}")
+    
+    # ---------------- Exporter Jaeger sécurisé ----------------
+    jaeger_exporter = JaegerExporter(
+        collector_endpoint=jaeger_endpoint,
+        username=os.getenv('JAEGER_USER', ''),
+        password=os.getenv('JAEGER_PASSWORD', ''),
+    )
 
-# ---------------- Span Processor ----------------
-span_processor = BatchSpanProcessor(jaeger_exporter)
-trace.get_tracer_provider().add_span_processor(span_processor)
-
-print(f"✅ Jaeger tracer setup complete - Endpoint: {jaeger_endpoint}")
+    # ---------------- Span Processor ----------------
+    if jaeger_exporter:
+        span_processor = BatchSpanProcessor(jaeger_exporter)
+        trace.get_tracer_provider().add_span_processor(span_processor)
+        print("✅ Jaeger tracer setup complete")
