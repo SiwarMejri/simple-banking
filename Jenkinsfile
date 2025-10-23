@@ -9,6 +9,7 @@ pipeline {
         IMAGE_NAME    = "siwarmejri/simple-banking"
         IMAGE_TAG     = "latest"
         SONAR_TOKEN   = credentials('sonar-token')
+        SONAR_HOST_URL = 'http://192.168.240.139:9000'
     }
 
     stages {
