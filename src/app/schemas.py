@@ -25,16 +25,16 @@ class AccountCreate(AccountBase):
     user_id: int = Field(..., gt=0)
 
 class AccountSchema(AccountBase):
-    owner_id: int = Field(..., gt=0)  # ✅ Doit être requis
+    owner_id: int = Field(..., gt=0)  # ✅ REQUIS
     
     class Config:
         from_attributes = True
 
-# Transaction Schemas - CORRECTION CRITIQUE
+# Transaction Schemas - CORRIGÉ
 class TransactionCreate(BaseModel):
     type: str
     amount: float = Field(..., gt=0)
-    account_id: str  # ✅ Utiliser account_id au lieu de origin/destination
+    account_id: str  # ✅ account_id au lieu de origin/destination
 
     @validator('type')
     def validate_type(cls, v):
@@ -44,7 +44,7 @@ class TransactionCreate(BaseModel):
 
 class TransactionResponse(BaseModel):
     type: str
-    account_id: str  # ✅ Utiliser account_id
+    account_id: str  # ✅ account_id au lieu de origin/destination
     status: str = "success"
     timestamp: datetime = Field(default_factory=datetime.now)
     
