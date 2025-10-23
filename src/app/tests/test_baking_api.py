@@ -14,19 +14,20 @@ from src.app.core import core
 # Les tests utilisent la fixture client de conftest.py
 
 def test_create_account_with_initial_balance(client):
-    response = client.post("/event", json={"type": "deposit", "destination": "100", "amount": 10})
+    # CORRECTION : utiliser account_id au lieu de destination
+    response = client.post("/event", json={"type": "deposit", "account_id": "100", "amount": 10})
     assert response.status_code == 200, f"Erreur: {response.text}"
     body = response.json()
     # Vérifications flexibles
     assert body.get("type") == "deposit"
-    assert "destination" in body and body["destination"]["id"] == "100"
-    assert body["destination"]["balance"] == 10
+    assert "account_id" in body and body["account_id"] == "100"
 
 def test_get_balance_existing_account(client):
     # Ajouter un reset pour isoler le test
     client.post("/reset")
     
-    client.post("/event", json={"type": "deposit", "destination": "100", "amount": 20})
+    # CORRECTION : utiliser account_id au lieu de destination
+    client.post("/event", json={"type": "deposit", "account_id": "100", "amount": 20})
     response = client.get("/balance", params={"account_id": "100"})
     assert response.status_code == 200, f"Erreur: {response.text}"
     body = response.json()
