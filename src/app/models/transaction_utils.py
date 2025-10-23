@@ -25,7 +25,7 @@ def process_withdraw(current_balance: float, amount: float) -> float:
 
 def process_transfer(sender_balance: float, receiver_balance: float, amount: float) -> tuple:
     """Traite un transfert - version simplifiée pour les tests."""
-    # AJOUT DE LA VALIDATION DU MONTANT
+    # CORRECTION : AJOUT DE LA VALIDATION DU MONTANT
     if amount <= 0:
         raise ValueError(INVALID_AMOUNT_MSG)
     
