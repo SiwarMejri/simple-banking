@@ -9,12 +9,14 @@ from pydantic import BaseModel
 import logging
 import os
 
-from schemas import TransactionResponse, TransactionCreate, AccountCreate, AccountSchema
-from src.app.models.database import SessionLocal, engine  # CORRECTION : Chemin absolu
+from src.app.schemas import TransactionResponse, TransactionCreate, AccountCreate, AccountSchema
+from src.app.models.database import SessionLocal, engine
 from src.app.models.base import Base
-from src.app.models import UserModel, AccountModel, TransactionModel  # Import corrigé via __init__.py
-from core import core
-import crud
+from src.app.models.user import UserModel  # CORRECTION : Import direct du modèle User
+from src.app.models.account import AccountModel
+from src.app.models.transaction import TransactionModel
+from src.app.core import core
+from src.app import crud
 
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO,
@@ -24,7 +26,7 @@ logger = logging.getLogger("fastapi-app")
 # ---------------- FastAPI ----------------
 app = FastAPI(title="Simple Banking API", version="1.0.0")
 Base.metadata.create_all(bind=engine)
-templates = Jinja2Templates(directory="src/templates")
+templates = Jinja2Templates(directory="src/app/templates")  # CORRECTION : Chemin correct
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def get_password_hash(password: str):
@@ -72,8 +74,8 @@ def create_user(email: str = Form(...), password: str = Form(...)):
     db = SessionLocal()
     try:
         hashed_password = get_password_hash(password)
-        # CORRECTION : Utiliser User directement depuis models
-        new_user = User(email=email, password=hashed_password)
+        # CORRECTION : Utiliser UserModel correctement
+        new_user = UserModel(email=email, password=hashed_password, name=email.split('@')[0])  # Ajout du nom requis
         db.add(new_user)
         db.commit()
         db.refresh(new_user)
@@ -92,9 +94,10 @@ def create_account(account: AccountCreate, db: Session = Depends(get_db)):
 
 @app.get("/balance")
 def get_balance(account_id: str):
-    account = core.get_account_balance(account_id)
-    if account is not None:
-        return {"account_id": account_id, "balance": getattr(account, "balance", account)}
+    # CORRECTION : Utiliser la méthode core existante ou logique simplifiée
+    if account_id in core.accounts:
+        account = core.accounts[account_id]
+        return {"account_id": account_id, "balance": account.balance}
     else:
         raise HTTPException(status_code=404, detail="Account not found")
 
@@ -109,48 +112,56 @@ def reset_state():
 def process_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
     transaction_processed_counter.inc()
 
-    # Vérifier si les comptes existent UNIQUEMENT pour retrait et transfert (pas pour dépôt, qui crée le compte)
-    if transaction.type == "withdraw":
-        if transaction.origin not in core.accounts:
-            raise HTTPException(status_code=404, detail="Account not found")
-    elif transaction.type == "transfer":
-        if transaction.origin not in core.accounts or transaction.destination not in core.accounts:
-            raise HTTPException(status_code=404, detail="Account not found")
+    try:
+        # CORRECTION : Utiliser account_id au lieu de origin/destination
+        if transaction.type == "deposit":
+            # Pour les dépôts, créer ou mettre à jour le compte
+            account = core.create_or_update_account(transaction.account_id, transaction.amount)
+            return TransactionResponse(
+                type="deposit",
+                account_id=account.id,
+                status="success"
+            )
 
-    # Logique des transactions
-    if transaction.type == "deposit":
-        account = core.create_or_update_account(transaction.destination, transaction.amount)
-        return TransactionResponse(
-            type="deposit",
-            origin=None,
-            destination=AccountSchema(id=account.id, balance=account.balance, owner_id=account.owner_id)
-        )
-    elif transaction.type == "withdraw":
-        account = core.withdraw_from_account(transaction.origin, transaction.amount)
-        if account:
-            return TransactionResponse(
-                type="withdraw",
-                origin=AccountSchema(id=account.id, balance=account.balance, owner_id=account.owner_id),
-                destination=None
+        elif transaction.type == "withdraw":
+            # Pour les retraits, vérifier si le compte existe
+            if transaction.account_id not in core.accounts:
+                raise HTTPException(status_code=404, detail="Account not found")
+            
+            account = core.withdraw_from_account(transaction.account_id, transaction.amount)
+            if account:
+                return TransactionResponse(
+                    type="withdraw",
+                    account_id=account.id,
+                    status="success"
+                )
+            else:
+                raise HTTPException(status_code=403, detail="Insufficient balance")
+
+        elif transaction.type == "transfer":
+            # CORRECTION : Les transferts nécessitent deux comptes - désactivés temporairement
+            # car le schéma TransactionCreate n'a qu'un account_id
+            raise HTTPException(
+                status_code=400, 
+                detail="Transfer functionality requires two accounts. Current schema only supports single account operations."
             )
+
         else:
-            raise HTTPException(status_code=403, detail="Insufficient balance")
-    elif transaction.type == "transfer":
-        origin, dest = core.transfer_between_accounts(transaction.origin, transaction.destination, transaction.amount)
-        if origin and dest:
-            return TransactionResponse(
-                type="transfer",
-                origin=AccountSchema(id=origin.id, balance=origin.balance, owner_id=origin.owner_id),
-                destination=AccountSchema(id=dest.id, balance=dest.balance, owner_id=dest.owner_id)
-            )
-        else:
-            raise HTTPException(status_code=403, detail="Transfer failed")
-    else:
-        raise HTTPException(status_code=400, detail="Invalid transaction type")
+            raise HTTPException(status_code=400, detail="Invalid transaction type")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing transaction: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 # ---------------- GitHub Webhook ----------------
 @app.post("/github-webhook/")
 async def github_webhook(request: Request):
-    payload = await request.json()
-    logger.info(f"Received GitHub webhook: {payload}")
-    return {"status": "received"}
+    try:
+        payload = await request.json()
+        logger.info(f"Received GitHub webhook: {payload}")
+        return {"status": "received"}
+    except Exception as e:
+        logger.error(f"Error processing webhook: {e}")
+        return {"status": "error", "message": str(e)}
