@@ -73,7 +73,8 @@ class BankingCore:
     def create_account(self, account_id: str, initial_balance: float = 0.0):
         """Crée un nouveau compte bancaire."""
         if account_id in self.accounts:
-            raise ValueError(f"Le compte {account_id} existe déjà")
+            # Retourne le compte existant au lieu de lever une exception
+            return self.accounts[account_id]
         
         self.accounts[account_id] = MemoryAccount(
             id=account_id, 
@@ -96,17 +97,34 @@ class BankingCore:
     def deposit(self, account_id: str, amount: float):
         """Effectue un dépôt sur un compte."""
         if account_id not in self.accounts:
-            return None
-        return create_or_update_account(account_id, amount)
+            # Crée le compte s'il n'existe pas
+            self.create_account(account_id, amount)
+        else:
+            self.accounts[account_id].balance += amount
+        return self.accounts[account_id]
     
     def withdraw(self, account_id: str, amount: float):
         """Effectue un retrait sur un compte."""
-        return withdraw_from_account(account_id, amount)
+        if account_id not in self.accounts:
+            return None
+        
+        account = self.accounts[account_id]
+        if account.balance < amount:
+            return None
+        
+        account.balance -= amount
+        return account
     
     def transfer(self, from_account: str, to_account: str, amount: float):
         """Effectue un transfert entre comptes."""
-        result = transfer_between_accounts(from_account, to_account, amount)
-        return result[0] is not None
+        if (from_account not in self.accounts or 
+            to_account not in self.accounts or 
+            self.accounts[from_account].balance < amount):
+            return False
+        
+        self.accounts[from_account].balance -= amount
+        self.accounts[to_account].balance += amount
+        return True
     
     def reset_state(self):
         """Réinitialise l'état pour les tests."""
