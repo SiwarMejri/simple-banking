@@ -10,7 +10,7 @@ class TransactionModel(Base):
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
     type = Column(String, nullable=False)
     amount = Column(Float, nullable=False)
-    account_id = Column(String, ForeignKey("accounts.id"))
+    account_id = Column(String, ForeignKey("accounts.id"))  # ✅ Correct
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     account = relationship("AccountModel", back_populates="transactions")
