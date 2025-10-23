@@ -151,20 +151,19 @@ class TestTransactionSchemasComprehensive:
         assert transaction.account_id == "ACC123"
     
     def test_transaction_create_invalid_type(self):
-    """Test TransactionCreate avec type invalide"""
-    data = {
-        "type": "invalid_type",
-        "amount": 100.0,
-        "account_id": "ACC123"
-    }
-
-    with pytest.raises(ValueError) as exc_info:
-        TransactionCreate(**data)
-
-    # CORRECTION : Vérifier seulement que c'est une ValueError
-    # Le message exact peut varier selon la version de Pydantic
-    error_message = str(exc_info.value)
-    assert "Type must be" in error_message or "Value error" in error_message
+        """Test TransactionCreate avec type invalide"""
+        data = {
+            "type": "invalid_type",
+            "amount": 100.0,
+            "account_id": "ACC123"
+        }
+        
+        with pytest.raises(ValueError) as exc_info:
+            TransactionCreate(**data)
+        
+        # CORRECTION : Vérification plus flexible du message d'erreur
+        error_message = str(exc_info.value)
+        assert "Type must be" in error_message or "Value error" in error_message
     
     def test_transaction_create_negative_amount(self):
         """Test TransactionCreate avec montant négatif"""
