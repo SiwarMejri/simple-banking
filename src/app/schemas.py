@@ -1,65 +1,52 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, validator, EmailStr
+from typing import Optional
 from datetime import datetime
-from typing import Optional, List
 
-# -------------------- USERS --------------------
+# User Schemas
 class UserBase(BaseModel):
     name: str
-    email: str
+    email: EmailStr
 
 class UserCreate(UserBase):
     password: str
 
-    # AJOUT : Validateur d'email pour que le test passe
-    @field_validator('email')
-    @classmethod
-    def validate_email(cls, v):
-        if "@" not in v or "." not in v.split("@")[-1]:
-            raise ValueError('Invalid email format')
-        return v
-
 class User(UserBase):
     id: int
+    
     class Config:
-        orm_mode = True
+        from_attributes = True
 
-# -------------------- ACCOUNTS --------------------
+# Account Schemas
 class AccountBase(BaseModel):
     id: str
-    balance: float = 0
+    balance: float = 0.0
 
 class AccountCreate(AccountBase):
-    user_id: int
+    user_id: int = Field(..., gt=0)
 
-class AccountSchema(AccountBase):  # Renommé pour éviter conflit avec SQLAlchemy AccountModel
-    owner_id: Optional[int] = None  # Rendu optionnel pour les tests
+class AccountSchema(AccountBase):
+    owner_id: int = Field(..., gt=0)  # ✅ Doit être requis
+    
     class Config:
-        orm_mode = True
+        from_attributes = True
 
-# -------------------- TRANSACTIONS --------------------
+# Transaction Schemas - CORRECTION CRITIQUE
 class TransactionCreate(BaseModel):
     type: str
-    amount: float
-    origin: Optional[str] = None
-    destination: Optional[str] = None
+    amount: float = Field(..., gt=0)
+    account_id: str  # ✅ Utiliser account_id au lieu de origin/destination
 
-    @field_validator('type')
-    @classmethod
-    def type_must_not_be_empty(cls, v):
-        if not v.strip():
-            raise ValueError('type must not be empty')
-        return v
-
-    @field_validator('amount')
-    @classmethod
-    def amount_must_be_positive(cls, v):
-        if v <= 0:
-            raise ValueError('amount must be positive')
+    @validator('type')
+    def validate_type(cls, v):
+        if v not in ['deposit', 'withdraw', 'transfer']:
+            raise ValueError('Type must be deposit, withdraw, or transfer')
         return v
 
 class TransactionResponse(BaseModel):
     type: str
-    status: Optional[str] = "success"
-    timestamp: datetime = datetime.now()
-    origin: Optional[AccountSchema] = None
-    destination: Optional[AccountSchema] = None
+    account_id: str  # ✅ Utiliser account_id
+    status: str = "success"
+    timestamp: datetime = Field(default_factory=datetime.now)
+    
+    class Config:
+        from_attributes = True
