@@ -107,8 +107,8 @@ def test_create_account(db: Session):
 
 
 def test_get_transaction(db: Session):
-    # Test récupération transaction
-    trans = TransactionModel(type="deposit", amount=100.0, origin=None, destination="acc1")
+    # Test récupération transaction - CORRECTION : utiliser account_id
+    trans = TransactionModel(type="deposit", amount=100.0, account_id="acc1")
     db.add(trans)
     db.commit()
     db.refresh(trans)
@@ -125,9 +125,9 @@ def test_get_transaction_not_found(db: Session):
 
 
 def test_get_transactions(db: Session):
-    # Test liste transactions
-    trans1 = TransactionModel(type="deposit", amount=100.0, origin=None, destination="acc1")
-    trans2 = TransactionModel(type="withdraw", amount=50.0, origin="acc1", destination=None)
+    # Test liste transactions - CORRECTION : utiliser account_id
+    trans1 = TransactionModel(type="deposit", amount=100.0, account_id="acc1")
+    trans2 = TransactionModel(type="withdraw", amount=50.0, account_id="acc1")
     db.add(trans1)
     db.add(trans2)
     db.commit()
@@ -140,9 +140,9 @@ def test_get_transactions(db: Session):
 
 
 def test_create_transaction(db: Session):
-    # Test création transaction
-    trans_data = {"type": "deposit", "amount": 200.0, "origin": None, "destination": "acc1"}
+    # Test création transaction - CORRECTION : utiliser account_id
+    trans_data = {"type": "deposit", "amount": 200.0, "account_id": "acc1"}
     result = create_transaction(db, trans_data)
     assert result.type == "deposit"
     assert result.amount == 200.0
-    assert result.destination == "acc1"
+    assert result.account_id == "acc1"
