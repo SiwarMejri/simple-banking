@@ -5,6 +5,7 @@ from reportlab.lib import colors
 from reportlab.platypus import Table, TableStyle, SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import argparse
+import base64
 import os
 
 # === Chargement des données JSON ===
@@ -18,12 +19,21 @@ def load_json(file_path):
 def fetch_sonarqube_metrics(project_key, sonar_url='http://192.168.240.139:9000', token=None):
     api_url = f"{sonar_url}/api/measures/component?component={project_key}&metricKeys=bugs,vulnerabilities,code_smells,coverage,duplicated_lines_density,ncloc"
     headers = {}
+
     if token:
-        headers['Authorization'] = f"Basic {token}"
+        # Encodage Base64 de "<token>:"
+        encoded_token = base64.b64encode(f"{token}:".encode()).decode()
+        headers['Authorization'] = f"Basic {encoded_token}"
+
     try:
         response = requests.get(api_url, headers=headers)
         response.raise_for_status()
         return response.json()
+    except requests.exceptions.HTTPError as http_err:
+        print(f"⚠️ Erreur SonarQube HTTP: {http_err} ({response.status_code})")
+        print(f"URL: {api_url}")
+        print("💡 Vérifie ton token et tes permissions dans SonarQube (Administration > Security > Tokens).")
+        return {}
     except Exception as e:
         print(f"⚠️ Erreur SonarQube: {e}")
         return {}
