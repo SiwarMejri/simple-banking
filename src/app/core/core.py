@@ -68,7 +68,7 @@ class BankingCore:
     """Classe principale pour les opérations bancaires."""
     
     def __init__(self):
-        self.accounts = accounts  # Réutilise le dictionnaire existant
+        self.accounts = {}  # Nouveau dictionnaire par instance
     
     def create_account(self, account_id: str, initial_balance: float = 0.0):
         """Crée un nouveau compte bancaire."""
@@ -83,7 +83,7 @@ class BankingCore:
         return self.accounts[account_id]
     
     def get_account(self, account_id: str):
-        """Récupère un compte par son ID (méthode manquante)."""
+        """Récupère un compte par son ID."""
         return self.accounts.get(account_id)
     
     def get_balance(self, account_id: str):
@@ -96,7 +96,7 @@ class BankingCore:
     def deposit(self, account_id: str, amount: float):
         """Effectue un dépôt sur un compte."""
         if account_id not in self.accounts:
-            return None  # Retourne None si le compte n'existe pas
+            return None
         return create_or_update_account(account_id, amount)
     
     def withdraw(self, account_id: str, amount: float):
@@ -106,7 +106,6 @@ class BankingCore:
     def transfer(self, from_account: str, to_account: str, amount: float):
         """Effectue un transfert entre comptes."""
         result = transfer_between_accounts(from_account, to_account, amount)
-        # Retourne False si le transfert a échoué (pour les tests)
         return result[0] is not None
     
     def reset_state(self):
