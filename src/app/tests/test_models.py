@@ -41,10 +41,11 @@ def test_account_create_negative_balance():
 
 def test_transaction_create_valid():
     from schemas import TransactionCreate
-    # Test création transaction valide
-    trans = TransactionCreate(type="deposit", amount=100.0, destination="acc1")
+    # CORRECTION : utiliser account_id au lieu de destination
+    trans = TransactionCreate(type="deposit", amount=100.0, account_id="acc1")
     assert trans.type == "deposit"
     assert trans.amount == 100.0
+    assert trans.account_id == "acc1"
 
 def test_transaction_create_invalid_type():
     from schemas import TransactionCreate
@@ -59,16 +60,15 @@ def test_transaction_create_zero_amount():
         TransactionCreate(type="deposit", amount=0)
 
 def test_transaction_response():
-    from schemas import TransactionResponse, AccountSchema
+    from schemas import TransactionResponse
     from datetime import datetime
-    # Test réponse de transaction
-    account = AccountSchema(id="acc1", balance=100.0, owner_id=1)
+    # CORRECTION : utiliser account_id au lieu de destination
     response = TransactionResponse(
         type="deposit",
-        destination=account
+        account_id="acc1"
     )
     assert response.type == "deposit"
-    assert response.destination.id == "acc1"
+    assert response.account_id == "acc1"
 
 def test_account_schema():
     from schemas import AccountSchema
