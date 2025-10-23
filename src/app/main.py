@@ -26,7 +26,7 @@ logger = logging.getLogger("fastapi-app")
 # ---------------- FastAPI ----------------
 app = FastAPI(title="Simple Banking API", version="1.0.0")
 Base.metadata.create_all(bind=engine)
-templates = Jinja2Templates(directory="src/app/templates")  # CORRECTION : Chemin correct
+templates = Jinja2Templates(directory="src/templates")  # CORRECTION : Chemin correct
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def get_password_hash(password: str):
