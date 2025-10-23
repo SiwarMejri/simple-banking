@@ -13,6 +13,10 @@ class AccountModel(Base):
 
     owner = relationship("UserModel", back_populates="accounts")
     transactions = relationship("TransactionModel", back_populates="account")
+
+# AJOUTEZ CETTE LIGNE ↓
+Account = AccountModel  # Alias pour les tests
+
 class AccountBase(BaseModel):
     id: str
     balance: float = 0.0
@@ -21,7 +25,7 @@ class AccountCreate(AccountBase):
     user_id: int = Field(..., gt=0)
 
 class AccountSchema(AccountBase):
-    owner_id: int = Field(..., gt=0)  # ✅ Doit être requis
+    owner_id: int = Field(..., gt=0)
     
     class Config:
         from_attributes = True
