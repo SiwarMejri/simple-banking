@@ -30,19 +30,19 @@ class AccountSchema(AccountBase):
     class Config:
         from_attributes = True
 
-# Transaction Schemas - CORRIGÉ avec validation améliorée
+# Transaction Schemas - CORRIGÉ avec indentation fixe
 class TransactionCreate(BaseModel):
     type: str
     amount: float = Field(..., gt=0)
     account_id: str  # Pour deposit/withdraw
 
     @validator('type')
-def validate_type(cls, v):
-    allowed_types = ['deposit', 'withdraw', 'transfer']
-    if v not in allowed_types:
-        # CORRECTION : Message exact attendu par le test
-        raise ValueError('Type must be deposit, withdraw, or transfer')
-    return v
+    def validate_type(cls, v):
+        allowed_types = ['deposit', 'withdraw', 'transfer']
+        if v not in allowed_types:
+            # CORRECTION : Message d'erreur exact comme attendu par le test
+            raise ValueError('Type must be deposit, withdraw, or transfer')
+        return v
 
     @validator('amount')
     def validate_amount(cls, v):
