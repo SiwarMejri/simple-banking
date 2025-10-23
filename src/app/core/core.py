@@ -2,7 +2,7 @@ from sqlalchemy import inspect, text
 from src.app.models.base import Base
 from src.app.models.database import engine
 
-# Création d'une classe simple pour les comptes en mémoire (pas des modèles SQLAlchemy)
+# Création d'une classe simple pour les comptes en mémoire
 class MemoryAccount:
     def __init__(self, id: str, balance: float, owner_id: int = 1):
         self.id = id
@@ -63,7 +63,7 @@ def process_transaction(db_session, data):
     # Logique simplifiée (à étendre selon les besoins)
     return {"status": "success"}
 
-# Ajoutez cette classe à la fin de votre fichier core.py
+# Classe principale pour les opérations bancaires
 class BankingCore:
     """Classe principale pour les opérations bancaires."""
     
@@ -82,6 +82,10 @@ class BankingCore:
         )
         return self.accounts[account_id]
     
+    def get_account(self, account_id: str):
+        """Récupère un compte par son ID (méthode manquante)."""
+        return self.accounts.get(account_id)
+    
     def get_balance(self, account_id: str):
         """Récupère le solde d'un compte."""
         account = self.accounts.get(account_id)
@@ -91,6 +95,8 @@ class BankingCore:
     
     def deposit(self, account_id: str, amount: float):
         """Effectue un dépôt sur un compte."""
+        if account_id not in self.accounts:
+            return None  # Retourne None si le compte n'existe pas
         return create_or_update_account(account_id, amount)
     
     def withdraw(self, account_id: str, amount: float):
@@ -99,7 +105,13 @@ class BankingCore:
     
     def transfer(self, from_account: str, to_account: str, amount: float):
         """Effectue un transfert entre comptes."""
-        return transfer_between_accounts(from_account, to_account, amount)
+        result = transfer_between_accounts(from_account, to_account, amount)
+        # Retourne False si le transfert a échoué (pour les tests)
+        return result[0] is not None
+    
+    def reset_state(self):
+        """Réinitialise l'état pour les tests."""
+        self.accounts.clear()
 
-# Vous pouvez ajouter une instance globale si nécessaire
+# Instance globale
 banking_core = BankingCore()
