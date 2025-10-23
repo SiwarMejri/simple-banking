@@ -25,26 +25,33 @@ class AccountCreate(AccountBase):
     user_id: int = Field(..., gt=0)
 
 class AccountSchema(AccountBase):
-    owner_id: int = Field(..., gt=0)  # ✅ REQUIS
+    owner_id: int = Field(..., gt=0)
     
     class Config:
         from_attributes = True
 
-# Transaction Schemas - CORRIGÉ
+# Transaction Schemas - CORRIGÉ avec validation améliorée
 class TransactionCreate(BaseModel):
     type: str
     amount: float = Field(..., gt=0)
-    account_id: str  # ✅ account_id au lieu de origin/destination
+    account_id: str  # Pour deposit/withdraw
 
     @validator('type')
     def validate_type(cls, v):
-        if v not in ['deposit', 'withdraw', 'transfer']:
-            raise ValueError('Type must be deposit, withdraw, or transfer')
+        allowed_types = ['deposit', 'withdraw', 'transfer']
+        if v not in allowed_types:
+            raise ValueError(f'Type must be one of: {", ".join(allowed_types)}')
+        return v
+
+    @validator('amount')
+    def validate_amount(cls, v):
+        if v <= 0:
+            raise ValueError('Amount must be greater than 0')
         return v
 
 class TransactionResponse(BaseModel):
     type: str
-    account_id: str  # ✅ account_id au lieu de origin/destination
+    account_id: str
     status: str = "success"
     timestamp: datetime = Field(default_factory=datetime.now)
     
