@@ -1,7 +1,7 @@
-# Fichier CORRECT
+# src/app/models/__init__.py
+from .base import Base
 from .user import UserModel
 from .account import AccountModel
 from .transaction import TransactionModel
 
-# Exporter les noms corrects
-__all__ = ["UserModel", "AccountModel", "TransactionModel"]
+__all__ = ["Base", "UserModel", "AccountModel", "TransactionModel"]
