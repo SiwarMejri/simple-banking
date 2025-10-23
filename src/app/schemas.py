@@ -37,11 +37,12 @@ class TransactionCreate(BaseModel):
     account_id: str  # Pour deposit/withdraw
 
     @validator('type')
-    def validate_type(cls, v):
-        allowed_types = ['deposit', 'withdraw', 'transfer']
-        if v not in allowed_types:
-            raise ValueError(f'Type must be one of: {", ".join(allowed_types)}')
-        return v
+def validate_type(cls, v):
+    allowed_types = ['deposit', 'withdraw', 'transfer']
+    if v not in allowed_types:
+        # CORRECTION : Message exact attendu par le test
+        raise ValueError('Type must be deposit, withdraw, or transfer')
+    return v
 
     @validator('amount')
     def validate_amount(cls, v):
