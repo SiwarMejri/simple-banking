@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, validator
 from typing import Optional, List
 from enum import Enum
+from datetime import datetime
 
 class TransactionType(str, Enum):
     DEPOSIT = "deposit"
@@ -14,7 +15,7 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     password: str = Field(..., min_length=1)
 
-class UserModel(UserBase):
+class User(UserBase):  # Renommé de UserModel à User pour correspondre aux tests
     id: int
     accounts: List["AccountSchema"] = []
 
@@ -23,22 +24,21 @@ class UserModel(UserBase):
 
 class AccountBase(BaseModel):
     id: str
-    balance: float
+    balance: float = 0.0  # Valeur par défaut
 
 class AccountCreate(AccountBase):
-    user_id: int = Field(..., gt=0)  # Doit être > 0
+    user_id: int = Field(..., gt=0)
 
 class AccountSchema(AccountBase):
-    owner_id: int = Field(..., gt=0)  # Doit être requis et > 0
+    owner_id: int = Field(..., gt=0)
 
     class Config:
         from_attributes = True
 
 class TransactionCreate(BaseModel):
-    type: TransactionType  # Utiliser l'Enum pour validation
-    amount: float = Field(..., gt=0)  # Doit être > 0
-    origin: Optional[str] = None
-    destination: Optional[str] = None
+    type: TransactionType
+    amount: float = Field(..., gt=0)
+    account_id: str  # CORRECTION : account_id au lieu de origin/destination
 
     @validator('type')
     def validate_type(cls, v):
@@ -54,8 +54,12 @@ class TransactionCreate(BaseModel):
 
 class TransactionResponse(BaseModel):
     type: str
-    origin: Optional[AccountSchema] = None
-    destination: Optional[AccountSchema] = None
+    account_id: str  # CORRECTION : account_id au lieu de origin/destination
+    status: str = "success"
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+    class Config:
+        from_attributes = True
 
 # Mettre à jour les références
-UserModel.update_forward_refs()
+User.update_forward_refs()
