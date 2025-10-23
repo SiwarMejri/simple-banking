@@ -13,3 +13,6 @@ class UserModel(Base):
 
     # CORRECTION : relation cohérente
     accounts = relationship("AccountModel", back_populates="owner")
+
+# Ajouter un alias pour compatibilité
+User = UserModel  # <- ALIAS POUR LES TESTS
