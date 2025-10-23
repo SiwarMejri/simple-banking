@@ -1,6 +1,6 @@
 from sqlalchemy import Column, String, Float, Integer, ForeignKey
 from sqlalchemy.orm import relationship
-from .base import Base  # CORRECTION : utiliser base locale
+from .base import Base
 
 class AccountModel(Base):
     __tablename__ = "accounts"
@@ -10,6 +10,5 @@ class AccountModel(Base):
     balance = Column(Float, default=0.0)
     owner_id = Column(Integer, ForeignKey("users.id"))
 
-    # CORRECTION : utiliser les noms complets des modèles
     owner = relationship("UserModel", back_populates="accounts")
-    transactions = relationship("TransactionModel", back_populates="account")  # CORRECTION : TransactionModel
+    transactions = relationship("TransactionModel", back_populates="account")
