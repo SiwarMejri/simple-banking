@@ -52,7 +52,7 @@ def transfer_between_accounts(origin_id: str, dest_id: str, amount: float):
         return accounts[origin_id], accounts[dest_id]
     return None, None
 
-def process_transaction(db_session, data):
+def process_transaction(data):
     """Traite une transaction (placeholder pour extension future)."""
     if not data or "from_account" not in data or "to_account" not in data:
         return {"status": "failed", "message": "Missing parameters"}
