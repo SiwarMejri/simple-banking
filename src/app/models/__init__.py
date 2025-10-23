@@ -1,7 +1,9 @@
-# Fichier CORRECT
-from .user import UserModel
-from .account import AccountModel
-from .transaction import TransactionModel
+from .user import UserBase, UserCreate, User
+from .account import AccountBase, AccountCreate, AccountSchema
+from .transaction import TransactionCreate, TransactionResponse
 
-# Exporter les noms corrects
-__all__ = ["UserModel", "AccountModel", "TransactionModel"]
+__all__ = [
+    "UserBase", "UserCreate", "User",
+    "AccountBase", "AccountCreate", "AccountSchema", 
+    "TransactionCreate", "TransactionResponse"
+]
