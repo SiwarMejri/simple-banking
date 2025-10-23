@@ -90,7 +90,7 @@ pipeline {
             steps {
                 script {
                     try {
-                        timeout(time: 10, unit: 'MINUTES') {
+                        timeout(time: 5, unit: 'MINUTES') {
                             def qg = waitForQualityGate()
                             echo "🔍 Résultat complet du Quality Gate : ${qg.toString()}"
 
