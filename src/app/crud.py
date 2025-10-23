@@ -35,11 +35,11 @@ def get_transactions(db: Session, skip: int = 0, limit: int = 100):
     return db.query(TransactionModel).offset(skip).limit(limit).all()
 
 def create_transaction(db: Session, transaction: dict):
+    # CORRECTION : utiliser account_id au lieu de origin/destination
     db_transaction = TransactionModel(
         type=transaction.get("type"),
         amount=transaction.get("amount"),
-        origin=transaction.get("origin"),
-        destination=transaction.get("destination")
+        account_id=transaction.get("account_id")  # CORRECTION
     )
     db.add(db_transaction)
     db.commit()
