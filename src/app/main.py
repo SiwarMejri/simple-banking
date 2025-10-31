@@ -51,7 +51,35 @@ transaction_processed_counter = get_or_create_counter("transaction_processed_tot
 
 if os.getenv("TESTING", "0") != "1":
     Instrumentator().instrument(app).expose(app)
+# ---------------- Demo Endpoints ----------------
+@app.get("/demo/version")
+def api_version():
+    """
+    Retourne la version actuelle de l'API.
+    Tu peux modifier cette version pour déclencher le pipeline et montrer la mise à jour.
+    """
+    return {"version": "1.0.0", "message": "API version stable"}
 
+@app.get("/demo/commit")
+def last_commit():
+    """
+    Retourne le dernier commit du code de l'API.
+    Peut être mis à jour manuellement avant un commit pour la démonstration.
+    """
+    # Ici tu peux hardcoder une valeur temporaire ou la lire depuis un fichier .version
+    commit_id = os.getenv("LAST_COMMIT", "demo-commit-001")
+    return {"last_commit": commit_id}
+
+@app.get("/demo/reset-counters")
+def reset_demo_counters():
+    """
+    Endpoint pour réinitialiser les compteurs Prometheus pour la démo.
+    """
+    global user_created_counter, api_reset_counter, transaction_processed_counter
+    user_created_counter._value.set(0)
+    api_reset_counter._value.set(0)
+    transaction_processed_counter._value.set(0)
+    return {"message": "Demo counters reset"}
 # ---------------- Endpoints ----------------
 @app.get("/")
 def root():
