@@ -17,7 +17,6 @@ from src.app.models.account import AccountModel
 from src.app.models.transaction import TransactionModel
 from src.app.core import core
 from src.app import crud
-
 # ---------------- Logging ----------------
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
